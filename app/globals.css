@@ -182,3 +182,46 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
   .xl-main { padding: 20px; max-width: 100%; }
   .xl-kanban { grid-template-columns: 1fr; }
 }
+/* WorkBuddy-style dashboard: left rail of skills + right check-in panel */
+.xl-wb { display: flex; gap: 28px; align-items: flex-start; }
+.xl-rail { width: 180px; flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; }
+.xl-rail__item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--hairline); color: var(--parchment);
+  cursor: pointer; text-decoration: none; font-size: 13px; text-align: left; width: 100%;
+  transition: border-color 0.15s, background 0.15s;
+}
+.xl-rail__item:hover { border-color: var(--gold); }
+.xl-rail__item--active { border-color: var(--gold-bright); background: rgba(201,162,75,0.1); }
+.xl-rail__icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.xl-rail__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xl-rail__add { color: var(--gold-bright); border-style: dashed; justify-content: center; }
+
+.xl-wb__panel { flex: 1; min-width: 0; }
+
+.xl-checkin-row { display: flex; gap: 12px; margin-top: 20px; }
+.xl-checkin-btn {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 18px 12px; border-radius: 8px; border: 1px solid var(--hairline);
+  font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 14px; cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s;
+}
+.xl-checkin-btn:active { transform: scale(0.98); }
+.xl-checkin-btn--success { background: rgba(92,138,114,0.14); color: var(--jade); }
+.xl-checkin-btn--success:hover { border-color: var(--jade); }
+.xl-checkin-btn--fail { background: rgba(162,59,59,0.14); color: #C77A70; }
+.xl-checkin-btn--fail:hover { border-color: var(--seal-red); }
+
+.xl-recent-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--hairline); font-size: 12px; }
+
+@media (max-width: 720px) {
+  .xl-wb { flex-direction: column; }
+  .xl-rail { width: 100%; flex-direction: row; flex-wrap: wrap; }
+  .xl-rail__item { width: auto; }
+}
+/* Skills merged into the main left nav */
+.xl-navgroup { border-top: 1px solid var(--hairline); margin-top: 8px; padding-top: 8px; }
+.xl-navitem--skill { display: flex; align-items: center; gap: 8px; text-align: left; padding: 9px 12px; }
+.xl-navitem--skill .xl-navitem__icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.xl-navitem--skill .xl-navitem__skillname { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xl-navitem--addskill { color: var(--gold-bright); border-top: 1px solid var(--hairline); margin-top: 8px; padding-top: 12px; }
