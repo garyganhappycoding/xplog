@@ -1,13 +1,23 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { EFFORT_LABEL, xpGainForEntry, levelFromXp } from "@/lib/xp";
 import { Pill, LevelUpSeal } from "@/components/ui";
+import EmojiPicker from "@/components/EmojiPicker";
 
 export default function EntryPage() {
+  return (
+    <Suspense fallback={<div className="xl-subtitle">加载中...</div>}>
+      <EntryPageInner />
+    </Suspense>
+  );
+}
+
+function EntryPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: skills, add: addSkill, update: updateSkill } = useCollection("skills");
   const { add: addEntry } = useCollection("entries");
 
@@ -19,12 +29,20 @@ export default function EntryPage() {
   const [reflection, setReflection] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newIcon, setNewIcon] = useState("✦");
   const [newDescription, setNewDescription] = useState("");
   const [newCurrentStatus, setNewCurrentStatus] = useState("");
   const [newHasValue, setNewHasValue] = useState(true);
   const [newMilestones, setNewMilestones] = useState([""]);
   const [levelUp, setLevelUp] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Prefill from URL: ?create=1 opens the create-skill panel, ?skill=<id> preselects a skill
+  useEffect(() => {
+    if (searchParams.get("create") === "1") setShowCreate(true);
+    const skillParam = searchParams.get("skill");
+    if (skillParam) setSkillId(skillParam);
+  }, [searchParams]);
 
   const activeSkillId = skillId || skills[0]?.id || "";
   const gained = xpGainForEntry(result, reflection);
@@ -34,6 +52,7 @@ export default function EntryPage() {
     const ref = await addSkill({
       name: newName.trim(),
       nameEn: newName.trim(),
+      icon: newIcon.trim() || "✦",
       description: newDescription.trim(),
       currentStatus: newCurrentStatus.trim(),
       hasValue: newHasValue,
@@ -43,6 +62,7 @@ export default function EntryPage() {
     setSkillId(ref.id);
     setShowCreate(false);
     setNewName("");
+    setNewIcon("✦");
     setNewDescription("");
     setNewCurrentStatus("");
     setNewMilestones([""]);
@@ -95,7 +115,7 @@ export default function EntryPage() {
         <label className="xl-label">技能</label>
         <div className="xl-pillrow">
           {skills.map((s) => (
-            <Pill key={s.id} active={activeSkillId === s.id} onClick={() => setSkillId(s.id)}>{s.name}</Pill>
+            <Pill key={s.id} active={activeSkillId === s.id} onClick={() => setSkillId(s.id)}>{s.icon ? `${s.icon} ` : ""}{s.name}</Pill>
           ))}
           <button className="xl-pill xl-pill--dashed" onClick={() => setShowCreate((v) => !v)} type="button">
             <Plus size={12} /> 新技能
@@ -108,6 +128,10 @@ export default function EntryPage() {
           <div className="xl-field">
             <label className="xl-label">标题</label>
             <input className="xl-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="例如:公开演讲" />
+          </div>
+          <div className="xl-field">
+            <label className="xl-label">图标(可以打字选 emoji,或用下面预设)</label>
+            <EmojiPicker value={newIcon} onChange={setNewIcon} />
           </div>
           <div className="xl-field">
             <label className="xl-label">描述</label>
