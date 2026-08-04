@@ -3,30 +3,37 @@ import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { ArrowLeft, Plus, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Check, X as XIcon } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
-import { progressInLevel, xpToReach, EFFORT_SCORE, EFFORT_LABEL } from "@/lib/xp";
-import { ProgressBar, Pill } from "@/components/ui";
+import { progressInLevel, xpToReach, EFFORT_SCORE, EFFORT_LABEL, levelFromXp, xpGainForEntry } from "@/lib/xp";
+import { ProgressBar, Pill, LevelUpSeal } from "@/components/ui";
+import EmojiPicker from "@/components/EmojiPicker";
 
 export default function SkillDetailPage() {
   const { id } = useParams();
   const { data: skills, loading, update: updateSkill } = useCollection("skills");
-  const { data: allEntries } = useCollection("entries");
+  const { data: allEntries, add: addEntry } = useCollection("entries");
 
   const skill = skills.find((s) => s.id === id);
   const entries = allEntries.filter((e) => e.skillId === id);
 
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
+  const [icon, setIcon] = useState("✦");
   const [description, setDescription] = useState("");
   const [currentStatus, setCurrentStatus] = useState("");
   const [milestones, setMilestones] = useState([""]);
   const [hasValue, setHasValue] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [checkInReflection, setCheckInReflection] = useState("");
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [levelUp, setLevelUp] = useState(null);
+
   useEffect(() => {
     if (skill && !editing) {
       setName(skill.name || "");
+      setIcon(skill.icon || "✦");
       setDescription(skill.description || "");
       setCurrentStatus(skill.currentStatus || "");
       setMilestones(skill.milestones && skill.milestones.length ? [...skill.milestones] : [""]);
@@ -71,6 +78,7 @@ export default function SkillDetailPage() {
     await updateSkill(skill.id, {
       name: name.trim() || skill.name,
       nameEn: name.trim() || skill.name,
+      icon: icon.trim() || "✦",
       description: description.trim(),
       currentStatus: currentStatus.trim(),
       hasValue,
@@ -80,20 +88,76 @@ export default function SkillDetailPage() {
     setEditing(false);
   };
 
+  const checkIn = async (result) => {
+    setCheckingIn(true);
+    const gained = xpGainForEntry(result, checkInReflection);
+    const beforeLevel = levelFromXp(skill.totalXp || 0);
+    const newTotal = (skill.totalXp || 0) + gained;
+    const afterLevel = levelFromXp(newTotal);
+
+    await updateSkill(skill.id, { totalXp: newTotal });
+    await addEntry({
+      skillId: skill.id,
+      result,
+      time: null,
+      effort: null,
+      value: null,
+      reflection: checkInReflection.trim(),
+      xpGained: gained,
+      createdAt: Date.now(),
+    });
+
+    setCheckInReflection("");
+    setCheckingIn(false);
+
+    if (afterLevel > beforeLevel) setLevelUp({ skillName: skill.name, level: afterLevel });
+  };
+
   return (
     <>
+      {levelUp && <LevelUpSeal skillName={levelUp.skillName} level={levelUp.level} onDone={() => setLevelUp(null)} />}
+
       <Link className="xl-back" href="/dashboard"><ArrowLeft size={14} /> 返回总览</Link>
 
       {!editing && (
         <div className="xl-header">
           <div>
-            <div className="xl-title">{skill.name}</div>
-            <div className="xl-subtitle">LV.{level} · {skill.totalXp || 0} XP 累计</div>
+            <div className="xl-title">{skill.icon ? `${skill.icon} ` : ""}{skill.name}</div>
+            <div className="xl-subtitle">LV.{level} · {skill.totalXp || 0} XP · 距下一级还差 {xpToReach(level + 1) - (skill.totalXp || 0)} XP</div>
           </div>
           <button className="xl-btn--ghost" onClick={startEdit} type="button">
             <Pencil size={12} style={{ marginRight: 6, verticalAlign: -2 }} />编辑
           </button>
         </div>
+      )}
+
+      {!editing && (
+        <>
+          <ProgressBar pct={pct} tall />
+
+          <div className="xl-checkin-row">
+            <button className="xl-checkin-btn xl-checkin-btn--success" onClick={() => checkIn("success")} disabled={checkingIn} type="button">
+              <Check size={20} /> 今天成功了 <span className="xl-mono">+10</span>
+            </button>
+            <button className="xl-checkin-btn xl-checkin-btn--fail" onClick={() => checkIn("fail")} disabled={checkingIn} type="button">
+              <XIcon size={20} /> 今天失败了 <span className="xl-mono">+1</span>
+            </button>
+          </div>
+
+          <div className="xl-field" style={{ marginTop: 14 }}>
+            <textarea
+              className="xl-input"
+              value={checkInReflection}
+              onChange={(e) => setCheckInReflection(e.target.value)}
+              placeholder="写点反省(可选,打卡时一起提交,额外 +50 XP)"
+              style={{ minHeight: 60 }}
+            />
+          </div>
+
+          <div style={{ marginBottom: 22 }}>
+            <Link href={`/entry?skill=${skill.id}`} style={{ color: "var(--muted)", fontSize: 12 }}>+ 需要记录时间/精力/产出价值?去详细记录表单 →</Link>
+          </div>
+        </>
       )}
 
       {!editing && skill.description && (
@@ -117,6 +181,10 @@ export default function SkillDetailPage() {
           <div className="xl-field">
             <label className="xl-label">标题</label>
             <input className="xl-input" value={name} onChange={(e) => setName(e.target.value)} placeholder="技能名称" />
+          </div>
+          <div className="xl-field">
+            <label className="xl-label">图标</label>
+            <EmojiPicker value={icon} onChange={setIcon} />
           </div>
           <div className="xl-field">
             <label className="xl-label">描述</label>
@@ -175,9 +243,6 @@ export default function SkillDetailPage() {
 
       {!editing && (
         <>
-          <ProgressBar pct={pct} tall />
-          <div className="xl-subtitle" style={{ marginTop: 6, marginBottom: 20 }}>距下一级还差 {xpToReach(level + 1) - (skill.totalXp || 0)} XP</div>
-
           {skill.milestones && skill.milestones.length > 0 && (
             <div className="xl-panel">
               <div className="xl-label" style={{ marginBottom: 10 }}>等级成就(Lv.1 → Lv.{skill.milestones.length})</div>
@@ -218,7 +283,7 @@ export default function SkillDetailPage() {
                   {e.result === "success" ? "成功 +10" : "失败 +1"}{e.reflection ? " · 反省 +50" : ""}
                 </span>
                 <span className="xl-entry__meta">
-                  时间{EFFORT_LABEL[e.time]} / 精力{EFFORT_LABEL[e.effort]}{e.value ? ` · ¥${e.value}` : ""}
+                  {e.time ? `时间${EFFORT_LABEL[e.time]} / 精力${EFFORT_LABEL[e.effort]}` : "快速打卡"}{e.value ? ` · ¥${e.value}` : ""}
                 </span>
               </div>
               {e.reflection ? <div className="xl-entry__text">{e.reflection}</div> : <div className="xl-entry__empty">未写反省</div>}
