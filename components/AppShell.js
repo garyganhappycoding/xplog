@@ -1,13 +1,13 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Plus } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { useGraphWindow } from "@/context/GraphWindowContext";
+import { useCollection } from "@/lib/useCollection";
 import FloatingGraphWindow from "@/components/FloatingGraphWindow";
 
-const NAV_ITEMS = [
-  { href: "/dashboard", cn: "总览", en: "DASHBOARD" },
-  { href: "/entry", cn: "新增记录", en: "NEW ENTRY" },
+const BOTTOM_NAV_ITEMS = [
   { href: "/insights", cn: "Daily Insights", en: "INSIGHTS" },
   { href: "/reflections", cn: "反省回顾", en: "REFLECT" },
   { href: "/merit", cn: "功过格", en: "MERIT LOG" },
@@ -17,10 +17,9 @@ export default function AppShell({ children }) {
   const { user, loading, login, logout } = useAuth();
   const pathname = usePathname();
   const { openWindow } = useGraphWindow();
+  const { data: skills } = useCollection("skills");
 
-  if (loading) {
-    return <div className="xl-login"><div className="xl-subtitle">加载中...</div></div>;
-  }
+  if (loading) return <div className="xl-login"><div className="xl-subtitle">加载中...</div></div>;
 
   if (!user) {
     return (
@@ -36,16 +35,41 @@ export default function AppShell({ children }) {
     <div className="xl-shell">
       <nav className="xl-nav">
         <div className="xl-nav__brand">XPLog<span>累经簿</span></div>
-        {NAV_ITEMS.map((item) => (
-          <Link key={item.href} href={item.href} className={`xl-navitem ${pathname?.startsWith(item.href) ? "xl-navitem--active" : ""}`}>
-            <span className="xl-navitem__cn">{item.cn}</span>
-            <span className="xl-navitem__en">{item.en}</span>
-          </Link>
-        ))}
-        <button className="xl-navitem" onClick={openWindow} type="button">
-          <span className="xl-navitem__cn">关系图</span>
-          <span className="xl-navitem__en">GRAPH</span>
-        </button>
+
+        <Link href="/dashboard" className={`xl-navitem ${pathname === "/dashboard" ? "xl-navitem--active" : ""}`}>
+          <span className="xl-navitem__cn">总览</span>
+          <span className="xl-navitem__en">DASHBOARD</span>
+        </Link>
+
+        {skills.length > 0 && (
+          <div className="xl-navgroup">
+            {skills.map((s) => (
+              <Link key={s.id} href={`/skill/${s.id}`} className={`xl-navitem xl-navitem--skill ${pathname === `/skill/${s.id}` ? "xl-navitem--active" : ""}`}>
+                <span className="xl-navitem__icon">{s.icon || "✦"}</span>
+                <span className="xl-navitem__skillname">{s.name}</span>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <div className="xl-navgroup">
+          {BOTTOM_NAV_ITEMS.map((item) => (
+            <Link key={item.href} href={item.href} className={`xl-navitem ${pathname?.startsWith(item.href) ? "xl-navitem--active" : ""}`}>
+              <span className="xl-navitem__cn">{item.cn}</span>
+              <span className="xl-navitem__en">{item.en}</span>
+            </Link>
+          ))}
+          <button className="xl-navitem" onClick={openWindow} type="button">
+            <span className="xl-navitem__cn">关系图</span>
+            <span className="xl-navitem__en">GRAPH</span>
+          </button>
+        </div>
+
+        <Link href="/entry" className="xl-navitem xl-navitem--skill xl-navitem--addskill">
+          <span className="xl-navitem__icon"><Plus size={14} /></span>
+          <span className="xl-navitem__skillname">新增</span>
+        </Link>
+
         <div style={{ marginTop: "auto", paddingTop: 16 }}>
           <button className="xl-navitem" onClick={logout} type="button">
             <span className="xl-navitem__cn">登出</span>
