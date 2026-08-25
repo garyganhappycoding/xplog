@@ -225,3 +225,11 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-navitem--skill .xl-navitem__icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .xl-navitem--skill .xl-navitem__skillname { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xl-navitem--addskill { color: var(--gold-bright); border-top: 1px solid var(--hairline); margin-top: 8px; padding-top: 12px; }
+
+/* Dashboard skill radar */
+.xl-radar-panel { max-width: 520px; }
+.xl-radar { height: 320px; }
+@media (max-width: 720px) {
+  .xl-radar-panel { max-width: 100%; }
+  .xl-radar { height: 260px; }
+}
