@@ -65,7 +65,7 @@ export default function AppShell({ children }) {
           </button>
         </div>
 
-        <Link href="/entry" className="xl-navitem xl-navitem--skill xl-navitem--addskill">
+        <Link href="/entry?create=1" className="xl-navitem xl-navitem--skill xl-navitem--addskill">
           <span className="xl-navitem__icon"><Plus size={14} /></span>
           <span className="xl-navitem__skillname">新增</span>
         </Link>
