@@ -227,9 +227,9 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-navitem--addskill { color: var(--gold-bright); border-top: 1px solid var(--hairline); margin-top: 8px; padding-top: 12px; }
 
 /* Dashboard skill radar */
-.xl-radar-panel { max-width: 520px; }
-.xl-radar { height: 320px; }
+.xl-radar-panel { max-width: var(--radar-max-w, 520px); }
+.xl-radar { height: var(--radar-h, 320px); }
 @media (max-width: 720px) {
   .xl-radar-panel { max-width: 100%; }
-  .xl-radar { height: 260px; }
+  .xl-radar { height: 280px; }
 }

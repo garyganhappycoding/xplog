@@ -17,6 +17,10 @@ export default function DashboardPage() {
     [skills]
   );
   const radarMax = Math.max(5, ...radarData.map((d) => d.level));
+  const skillCount = radarData.length;
+  const radarHeight = Math.min(640, Math.max(320, 260 + skillCount * 18));
+  const radarMaxWidth = Math.min(820, Math.max(520, 380 + skillCount * 26));
+  const radarTickFontSize = skillCount > 16 ? 9 : skillCount > 10 ? 10.5 : 12;
 
   return (
     <>
@@ -36,14 +40,14 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="xl-subtitle" style={{ marginBottom: 16 }}>从左边导航栏点一个技能开始打卡,或者点「+ 新增」建立新的。</div>
-          {radarData.length >= 3 && (
-            <div className="xl-panel xl-radar-panel">
-              <div className="xl-label" style={{ marginBottom: 4 }}>能力雷达</div>
-              <div className="xl-radar">
+          {skillCount >= 3 && (
+            <div className="xl-panel xl-radar-panel" style={{ "--radar-max-w": `${radarMaxWidth}px` }}>
+              <div className="xl-label" style={{ marginBottom: 4 }}>能力雷达 <span style={{ opacity: 0.6, fontWeight: 400 }}>({skillCount} 项技能)</span></div>
+              <div className="xl-radar" style={{ "--radar-h": `${radarHeight}px` }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <RadarChart data={radarData} outerRadius="72%">
+                  <RadarChart data={radarData} outerRadius="70%">
                     <PolarGrid stroke="rgba(201,162,75,0.18)" />
-                    <PolarAngleAxis dataKey="subject" tick={{ fill: "#EDE4D1", fontSize: 12 }} />
+                    <PolarAngleAxis dataKey="subject" tick={{ fill: "#EDE4D1", fontSize: radarTickFontSize }} />
                     <PolarRadiusAxis angle={90} domain={[0, radarMax]} tick={{ fill: "#92897A", fontSize: 10 }} tickCount={Math.min(radarMax, 5) + 1} axisLine={false} />
                     <Radar name="等级" dataKey="level" stroke="#E9C877" fill="#E9C877" fillOpacity={0.32} />
                     <Tooltip contentStyle={{ background: "#1B1712", border: "1px solid rgba(201,162,75,0.25)", fontSize: 12, borderRadius: 4 }} labelStyle={{ color: "#EDE4D1" }} formatter={(v) => [`LV.${v}`, "等级"]} />
