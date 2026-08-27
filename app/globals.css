@@ -254,3 +254,15 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 }
 .xl-entry__iconbtn:hover { border-color: var(--hairline); color: var(--parchment); }
 .xl-entry__iconbtn--danger:hover { border-color: rgba(162,59,59,0.4); color: #C77A70; }
+
+/* Sidebar skill delete-on-hover */
+.xl-navitem-row { position: relative; }
+.xl-navitem-row .xl-navitem--skill { padding-right: 30px; }
+.xl-navitem__delete {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  display: none; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 4px; border: none;
+  background: transparent; color: var(--muted); cursor: pointer; z-index: 2;
+}
+.xl-navitem-row:hover .xl-navitem__delete { display: inline-flex; }
+.xl-navitem__delete:hover { color: #C77A70; background: rgba(162,59,59,0.12); }
