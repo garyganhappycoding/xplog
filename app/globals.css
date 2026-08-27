@@ -226,10 +226,31 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-navitem--skill .xl-navitem__skillname { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .xl-navitem--addskill { color: var(--gold-bright); border-top: 1px solid var(--hairline); margin-top: 8px; padding-top: 12px; }
 
-/* Dashboard skill radar */
-.xl-radar-panel { max-width: var(--radar-max-w, 520px); }
-.xl-radar { height: var(--radar-h, 320px); }
-@media (max-width: 720px) {
-  .xl-radar-panel { max-width: 100%; }
-  .xl-radar { height: 280px; }
+/* Confirm dialog */
+.xl-modal-overlay {
+  position: fixed; inset: 0; background: rgba(16,13,11,0.72);
+  display: flex; align-items: center; justify-content: center; z-index: 200; padding: 20px;
 }
+.xl-modal {
+  width: 100%; max-width: 380px; background: var(--panel); border: 1px solid var(--hairline);
+  border-radius: 8px; padding: 22px;
+}
+.xl-modal__title { font-family: 'Noto Serif SC', serif; font-size: 16px; color: var(--parchment); margin-bottom: 8px; }
+.xl-modal__msg { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.xl-modal__actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+/* Danger button variants */
+.xl-btn--danger { background: linear-gradient(180deg, #C77A70, var(--seal-red)); color: #FBEAE7; }
+.xl-btn--ghost.xl-btn--danger { background: transparent; color: #C77A70; border-color: rgba(162,59,59,0.4); }
+.xl-btn--ghost.xl-btn--danger:hover { border-color: var(--seal-red); }
+
+/* Per-entry edit/delete icons */
+.xl-entry__right { display: flex; align-items: center; gap: 10px; }
+.xl-entry__actions { display: flex; align-items: center; gap: 4px; }
+.xl-entry__iconbtn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 4px; border: 1px solid transparent;
+  background: transparent; color: var(--muted); cursor: pointer;
+}
+.xl-entry__iconbtn:hover { border-color: var(--hairline); color: var(--parchment); }
+.xl-entry__iconbtn--danger:hover { border-color: rgba(162,59,59,0.4); color: #C77A70; }

@@ -31,3 +31,19 @@ export const LevelUpSeal = ({ skillName, level, onDone }) => {
     </div>
   );
 };
+
+export const ConfirmDialog = ({ open, title, message, confirmLabel = "确认删除", onConfirm, onCancel }) => {
+  if (!open) return null;
+  return (
+    <div className="xl-modal-overlay" onClick={onCancel}>
+      <div className="xl-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="xl-modal__title">{title}</div>
+        {message && <div className="xl-modal__msg">{message}</div>}
+        <div className="xl-modal__actions">
+          <button className="xl-btn--ghost" onClick={onCancel} type="button">取消</button>
+          <button className="xl-btn xl-btn--danger" onClick={onConfirm} type="button">{confirmLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
+};

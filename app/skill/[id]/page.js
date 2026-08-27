@@ -1,18 +1,19 @@
 "use client";
 import { useMemo, useState, useEffect } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, CartesianGrid } from "recharts";
-import { ArrowLeft, Plus, Pencil, Check, X as XIcon } from "lucide-react";
+import { ArrowLeft, Plus, Pencil, Check, X as XIcon, Trash2 } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { progressInLevel, xpToReach, EFFORT_SCORE, EFFORT_LABEL, levelFromXp, xpGainForEntry } from "@/lib/xp";
-import { ProgressBar, Pill, LevelUpSeal } from "@/components/ui";
+import { ProgressBar, Pill, LevelUpSeal, ConfirmDialog } from "@/components/ui";
 import EmojiPicker from "@/components/EmojiPicker";
 
 export default function SkillDetailPage() {
   const { id } = useParams();
-  const { data: skills, loading, update: updateSkill } = useCollection("skills");
-  const { data: allEntries, add: addEntry } = useCollection("entries");
+  const router = useRouter();
+  const { data: skills, loading, update: updateSkill, remove: removeSkill } = useCollection("skills");
+  const { data: allEntries, add: addEntry, update: updateEntry, remove: removeEntry } = useCollection("entries");
 
   const skill = skills.find((s) => s.id === id);
   const entries = allEntries.filter((e) => e.skillId === id);
@@ -29,6 +30,15 @@ export default function SkillDetailPage() {
   const [checkInReflection, setCheckInReflection] = useState("");
   const [checkingIn, setCheckingIn] = useState(false);
   const [levelUp, setLevelUp] = useState(null);
+
+  const [confirmDeleteSkill, setConfirmDeleteSkill] = useState(false);
+  const [deletingSkill, setDeletingSkill] = useState(false);
+
+  const [editingEntryId, setEditingEntryId] = useState(null);
+  const [entryEditResult, setEntryEditResult] = useState("success");
+  const [entryEditReflection, setEntryEditReflection] = useState("");
+  const [savingEntry, setSavingEntry] = useState(false);
+  const [confirmDeleteEntryId, setConfirmDeleteEntryId] = useState(null);
 
   useEffect(() => {
     if (skill && !editing) {
@@ -88,6 +98,13 @@ export default function SkillDetailPage() {
     setEditing(false);
   };
 
+  const handleDeleteSkill = async () => {
+    setDeletingSkill(true);
+    await Promise.all(entries.map((e) => removeEntry(e.id)));
+    await removeSkill(skill.id);
+    router.push("/dashboard");
+  };
+
   const checkIn = async (result) => {
     setCheckingIn(true);
     const gained = xpGainForEntry(result, checkInReflection);
@@ -113,9 +130,55 @@ export default function SkillDetailPage() {
     if (afterLevel > beforeLevel) setLevelUp({ skillName: skill.name, level: afterLevel });
   };
 
+  const startEntryEdit = (e) => {
+    setEditingEntryId(e.id);
+    setEntryEditResult(e.result);
+    setEntryEditReflection(e.reflection || "");
+  };
+  const cancelEntryEdit = () => setEditingEntryId(null);
+
+  const saveEntryEdit = async (e) => {
+    setSavingEntry(true);
+    const newGained = xpGainForEntry(entryEditResult, entryEditReflection);
+    const delta = newGained - (e.xpGained || 0);
+    await updateEntry(e.id, {
+      result: entryEditResult,
+      reflection: entryEditReflection.trim(),
+      xpGained: newGained,
+    });
+    if (delta !== 0) {
+      await updateSkill(skill.id, { totalXp: Math.max(0, (skill.totalXp || 0) + delta) });
+    }
+    setSavingEntry(false);
+    setEditingEntryId(null);
+  };
+
+  const handleDeleteEntry = async (e) => {
+    await removeEntry(e.id);
+    await updateSkill(skill.id, { totalXp: Math.max(0, (skill.totalXp || 0) - (e.xpGained || 0)) });
+    setConfirmDeleteEntryId(null);
+  };
+
   return (
     <>
       {levelUp && <LevelUpSeal skillName={levelUp.skillName} level={levelUp.level} onDone={() => setLevelUp(null)} />}
+
+      <ConfirmDialog
+        open={confirmDeleteSkill}
+        title={`删除「${skill.name}」?`}
+        message={`这会永久删除这个技能以及它的 ${entries.length} 条打卡记录,无法恢复。`}
+        confirmLabel={deletingSkill ? "删除中..." : "确认删除"}
+        onConfirm={handleDeleteSkill}
+        onCancel={() => setConfirmDeleteSkill(false)}
+      />
+
+      <ConfirmDialog
+        open={!!confirmDeleteEntryId}
+        title="删除这条记录?"
+        message="删除后无法恢复,对应的 XP 也会被扣除。"
+        onConfirm={() => handleDeleteEntry(entries.find((en) => en.id === confirmDeleteEntryId))}
+        onCancel={() => setConfirmDeleteEntryId(null)}
+      />
 
       <Link className="xl-back" href="/dashboard"><ArrowLeft size={14} /> 返回总览</Link>
 
@@ -237,6 +300,14 @@ export default function SkillDetailPage() {
           <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
             <button className="xl-btn" onClick={saveEdit} disabled={saving} type="button">{saving ? "保存中..." : "保存修改"}</button>
             <button className="xl-btn--ghost" onClick={cancelEdit} type="button">取消</button>
+            <button
+              className="xl-btn--ghost xl-btn--danger"
+              style={{ marginLeft: "auto" }}
+              onClick={() => setConfirmDeleteSkill(true)}
+              type="button"
+            >
+              <Trash2 size={12} style={{ marginRight: 6, verticalAlign: -2 }} />删除技能
+            </button>
           </div>
         </div>
       )}
@@ -278,15 +349,45 @@ export default function SkillDetailPage() {
           <div className="xl-label" style={{ marginBottom: 12 }}>记录明细</div>
           {entries.map((e) => (
             <div className="xl-entry" key={e.id}>
-              <div className="xl-entry__top">
-                <span className={`xl-tag ${e.result === "success" ? "xl-tag--success" : "xl-tag--fail"}`}>
-                  {e.result === "success" ? "成功 +10" : "失败 +1"}{e.reflection ? " · 反省 +50" : ""}
-                </span>
-                <span className="xl-entry__meta">
-                  {e.time ? `时间${EFFORT_LABEL[e.time]} / 精力${EFFORT_LABEL[e.effort]}` : "快速打卡"}{e.value ? ` · ¥${e.value}` : ""}
-                </span>
-              </div>
-              {e.reflection ? <div className="xl-entry__text">{e.reflection}</div> : <div className="xl-entry__empty">未写反省</div>}
+              {editingEntryId === e.id ? (
+                <div>
+                  <div className="xl-pillrow" style={{ marginBottom: 10 }}>
+                    <Pill small active={entryEditResult === "success"} onClick={() => setEntryEditResult("success")}>成功 +10</Pill>
+                    <Pill small active={entryEditResult === "fail"} onClick={() => setEntryEditResult("fail")}>失败 +1</Pill>
+                  </div>
+                  <textarea
+                    className="xl-input"
+                    value={entryEditReflection}
+                    onChange={(ev) => setEntryEditReflection(ev.target.value)}
+                    placeholder="反省(可选,+50 XP)"
+                    style={{ minHeight: 60, marginBottom: 10 }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => saveEntryEdit(e)} disabled={savingEntry} type="button">
+                      {savingEntry ? "保存中..." : "保存"}
+                    </button>
+                    <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={cancelEntryEdit} type="button">取消</button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="xl-entry__top">
+                    <span className={`xl-tag ${e.result === "success" ? "xl-tag--success" : "xl-tag--fail"}`}>
+                      {e.result === "success" ? "成功 +10" : "失败 +1"}{e.reflection ? " · 反省 +50" : ""}
+                    </span>
+                    <div className="xl-entry__right">
+                      <span className="xl-entry__meta">
+                        {e.time ? `时间${EFFORT_LABEL[e.time]} / 精力${EFFORT_LABEL[e.effort]}` : "快速打卡"}{e.value ? ` · ¥${e.value}` : ""}
+                      </span>
+                      <span className="xl-entry__actions">
+                        <button className="xl-entry__iconbtn" onClick={() => startEntryEdit(e)} type="button" title="编辑"><Pencil size={12} /></button>
+                        <button className="xl-entry__iconbtn xl-entry__iconbtn--danger" onClick={() => setConfirmDeleteEntryId(e.id)} type="button" title="删除"><XIcon size={12} /></button>
+                      </span>
+                    </div>
+                  </div>
+                  {e.reflection ? <div className="xl-entry__text">{e.reflection}</div> : <div className="xl-entry__empty">未写反省</div>}
+                </>
+              )}
             </div>
           ))}
           {entries.length === 0 && <div className="xl-entry__empty">这个技能还没有记录。</div>}
@@ -294,4 +395,4 @@ export default function SkillDetailPage() {
       )}
     </>
   );
-}
+} 
