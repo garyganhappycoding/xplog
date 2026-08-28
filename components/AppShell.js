@@ -73,6 +73,11 @@ export default function AppShell({ children }) {
           <span className="xl-navitem__en">DASHBOARD</span>
         </Link>
 
+        <Link href="/workbench" className={`xl-navitem ${pathname === "/workbench" ? "xl-navitem--active" : ""}`}>
+          <span className="xl-navitem__cn">工作台</span>
+          <span className="xl-navitem__en">WORKBENCH</span>
+        </Link>
+
         {skills.length > 0 && (
           <div className="xl-navgroup">
             {skills.map((s) => (
