@@ -34,6 +34,7 @@ html, body {
   border-right: 1px solid var(--hairline);
   display: flex; flex-direction: column; padding: 24px 0;
   position: sticky; top: 0; height: 100vh;
+  overflow-y: auto;
 }
 .xl-nav__brand {
   font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 17px;

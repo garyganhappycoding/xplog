@@ -78,6 +78,11 @@ export default function AppShell({ children }) {
           <span className="xl-navitem__en">WORKBENCH</span>
         </Link>
 
+        <Link href="/entry?create=1" className="xl-navitem xl-navitem--skill xl-navitem--addskill">
+          <span className="xl-navitem__icon"><Plus size={14} /></span>
+          <span className="xl-navitem__skillname">新增技能</span>
+        </Link>
+
         {skills.length > 0 && (
           <div className="xl-navgroup">
             {skills.map((s) => (
@@ -111,11 +116,6 @@ export default function AppShell({ children }) {
             <span className="xl-navitem__en">GRAPH</span>
           </button>
         </div>
-
-        <Link href="/entry?create=1" className="xl-navitem xl-navitem--skill xl-navitem--addskill">
-          <span className="xl-navitem__icon"><Plus size={14} /></span>
-          <span className="xl-navitem__skillname">新增</span>
-        </Link>
 
         <div style={{ marginTop: "auto", paddingTop: 16 }}>
           <button className="xl-navitem" onClick={logout} type="button">
