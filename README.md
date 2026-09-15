@@ -1,13 +1,14 @@
 # XPLog 累经簿
 
-记录每天做的事情,按技能累积经验值(XP)和等级,支持自定义技能与等级成就、ROI(时间/精力投入 vs 产出价值)分析、功过格,以及 Daily Insights(Zettelkasten 式笔记 + 可拖拽的关系图)。
+记录每天做的事情,按技能累积经验值(XP)和等级,支持自定义技能与等级成就、ROI(时间/精力投入 vs 产出价值)分析、功过格。四个底部导航标签:待办(项目分组)、日记(AI 自动判断技能与 XP)、技能成长(雷达图 + 技能列表)、关系图(日记与技能的可拖拽力导向图)。
 
 ## 技术栈
 
 - **Next.js 16**(App Router)+ React 19
-- **Firebase**(Google 登录 + Firestore 实时数据库)
+- **Firebase**(Google 登录 + Firestore 实时数据库 + Storage 图片存储)
+- **xAI Grok API**(日记自动打标签:推断技能 + XP)
 - **d3-force**(关系图的力导向布局与拖拽)
-- **recharts**(XP 曲线图)
+- **recharts**(XP 曲线图 / 雷达图)
 - **lucide-react**(图标)
 
 ## 本地开发
@@ -21,9 +22,12 @@
 2. 在 [Firebase Console](https://console.firebase.google.com/) 建一个新项目:
    - 打开 **Authentication → Sign-in method**,启用 **Google** 登录
    - 打开 **Firestore Database**,建一个数据库(生产模式)
+   - 打开 **Storage**,启用 Storage(用于日记照片上传)
    - 打开 **项目设置 → 你的应用 → Web app**,注册一个 Web App,复制配置
 
-3. 复制 `.env.local.example` 为 `.env.local`,填入 Firebase 配置:
+3. 在 [x.ai](https://x.ai/) 申请一个 Grok API key(用于日记自动打标签)。
+
+4. 复制 `.env.local.example` 为 `.env.local`,填入配置:
 
    ```bash
    cp .env.local.example .env.local
@@ -38,11 +42,12 @@
    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.appspot.com
    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
    NEXT_PUBLIC_FIREBASE_APP_ID=...
+   XAI_API_KEY=xai-...
    ```
 
-4. 把 `firestore.rules` 的内容贴到 Firebase Console 的 **Firestore Database → 规则**,发布规则(确保每个用户只能读写自己 uid 底下的数据)。
+5. 把 `firestore.rules` 的内容贴到 Firebase Console 的 **Firestore Database → 规则**,把 `storage.rules` 的内容贴到 **Storage → 规则**,分别发布(确保每个用户只能读写自己 uid 底下的数据)。
 
-5. 启动开发服务器:
+6. 启动开发服务器:
 
    ```bash
    npm run dev
@@ -54,7 +59,7 @@
 
 1. 把这个项目推上 GitHub(见下方"推上 GitHub"步骤)。
 2. 打开 [vercel.com](https://vercel.com),用 GitHub 账号登录,点 **New Project**,选择这个仓库,Vercel 会自动识别 Next.js 项目。
-3. 在 Vercel 的 **Environment Variables** 里,把 `.env.local` 里的 6 个 `NEXT_PUBLIC_FIREBASE_*` 变量原样加进去。
+3. 在 Vercel 的 **Environment Variables** 里,把 `.env.local` 里的 6 个 `NEXT_PUBLIC_FIREBASE_*` 变量和 `XAI_API_KEY` 原样加进去。
 4. 点 **Deploy**,几分钟后会拿到一个 `xxx.vercel.app` 的网址。
 5. 回到 Firebase Console → Authentication → Settings → **Authorized domains**,把这个 Vercel 网址加进去(否则 Google 登录会报错)。
 
@@ -74,27 +79,28 @@ git push -u origin main
 
 ```
 app/
-  layout.js              根布局,挂载 AuthProvider / GraphWindowProvider / AppShell
-  page.js                根路径重定向到 /dashboard
+  layout.js              根布局,挂载 AuthProvider / AppShell
+  page.js                根路径重定向到 /todo
   globals.css            暗金账本主题的全局样式
-  dashboard/page.js       总览页
-  entry/page.js           新增记录页(含新建技能)
+  api/tag-entry/route.js 日记自动打标签(调用 Grok API)
+  todo/page.js            待办(项目分组)
+  diary/page.js           日记(AI 自动打标签)
+  skills/page.js          技能成长(雷达图 + 技能列表)
+  graph/page.js           关系图(日记 ↔ 技能 的力导向图)
+  entry/page.js           详细记录表单(时间/精力/产出价值,ROI 用)
   skill/[id]/page.js      技能详情页
-  insights/page.js        Daily Insights(Kanban 笔记列表)
-  reflections/page.js     反省回顾页
-  merit/page.js           功过格页
+  reflections/page.js     反省回顾页(未接入底部导航,可直接访问)
+  merit/page.js           功过格页(未接入底部导航,可直接访问)
 components/
-  AppShell.js             导航栏 + 登录门槛 + 浮动关系图窗口挂载点
-  FloatingGraphWindow.js  可拖拽/缩放/最小化/最大化的关系图浮动窗口
-  GraphView.js            d3-force 力导向关系图
-  NoteEditor.js           全屏笔记编辑器
-  TagInput.js             标签输入(打字变泡泡 + 自动建议)
-  ui.js                   Pill / ProgressBar / LevelUpSeal 共用组件
+  AppShell.js             顶部栏 + 底部导航 + 登录门槛
+  CreateSkillForm.js      新建技能表单(entry 页与 skills 页共用)
+  GraphView.js            d3-force 力导向图(日记 ↔ 技能)
+  EmojiPicker.js          技能图标选择器
+  ui.js                   Pill / ProgressBar / LevelUpSeal / ConfirmDialog 共用组件
 context/
   AuthContext.js          Google 登录状态
-  GraphWindowContext.js   浮动关系图窗口的全局状态
 lib/
-  firebase.js             Firebase 初始化
+  firebase.js             Firebase 初始化(Auth / Firestore / Storage)
   useCollection.js        Firestore 实时集合 hook(增删改查)
   xp.js                   等级曲线、XP 计算等共用逻辑
 ```
@@ -106,14 +112,14 @@ lib/
 - `users/{uid}/skills/{skillId}` — `{ name, nameEn, hasValue, milestones: [5条], totalXp }`
 - `users/{uid}/entries/{entryId}` — `{ skillId, result, time, effort, value, reflection, xpGained, createdAt }`
 - `users/{uid}/merits/{meritId}` — `{ type: "merit" | "demerit", text, createdAt }`
-- `users/{uid}/notes/{noteId}` — `{ title, text, tags: [], category: "input" | "permanent" | "output", createdAt }`
+- `users/{uid}/projects/{projectId}` — `{ name, color?, createdAt, order }`
+- `users/{uid}/todos/{todoId}` — `{ projectId, text, done, createdAt, dueDate? }`
+- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, skill, skillId, xpDelta, aiTagged, confidence, createdAt }`
 
-## 关于关系图窗口
+## 关于关系图
 
-关系图(Graph View)不在页面内,而是一个**全局浮动窗口**,点导航栏的「关系图」随时可以打开:
+「关系图」是底部导航的第四个标签,展示日记条目与它们被 AI(或手动)打上的技能标签之间的关系:
 
-- 拖动标题栏可以移动到屏幕任何位置
-- 拖右下角可以缩放大小
-- 点 `−` 缩成一个小药丸(不占空间,随时点回来)
-- 点方块图示可以最大化 / 还原
-- 拖拽图里任何一个节点(笔记或标签)会牵动相连的节点重新排列
+- 力导向布局(d3-force),会自动排列
+- 拖拽图里任何一个节点(日记或技能)会牵动相连的节点重新排列
+- 只有已经打上技能标签的日记才会出现在图里

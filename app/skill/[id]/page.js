@@ -74,7 +74,7 @@ export default function SkillDetailPage() {
   if (!skill) {
     return (
       <>
-        <Link className="xl-back" href="/dashboard"><ArrowLeft size={14} /> 返回总览</Link>
+        <Link className="xl-back" href="/skills"><ArrowLeft size={14} /> 返回总览</Link>
         <div className="xl-entry__empty">找不到这个技能。</div>
       </>
     );
@@ -102,7 +102,7 @@ export default function SkillDetailPage() {
     setDeletingSkill(true);
     await Promise.all(entries.map((e) => removeEntry(e.id)));
     await removeSkill(skill.id);
-    router.push("/dashboard");
+    router.push("/skills");
   };
 
   const checkIn = async (result) => {
@@ -180,7 +180,7 @@ export default function SkillDetailPage() {
         onCancel={() => setConfirmDeleteEntryId(null)}
       />
 
-      <Link className="xl-back" href="/dashboard"><ArrowLeft size={14} /> 返回总览</Link>
+      <Link className="xl-back" href="/skills"><ArrowLeft size={14} /> 返回总览</Link>
 
       {!editing && (
         <div className="xl-header">

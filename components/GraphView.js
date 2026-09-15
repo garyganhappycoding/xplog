@@ -2,9 +2,10 @@
 import { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 
-const CAT_COLOR = { input: "#92897A", permanent: "#5C8A72", output: "#E9C877" };
+const ENTRY_COLOR = "#5C8A72";
+const SKILL_COLOR = "#A23B3B";
 
-export default function GraphView({ notes, width = 480, height = 320 }) {
+export default function GraphView({ entries, width = 480, height = 320 }) {
   const svgRef = useRef(null);
   const simRef = useRef(null);
   const draggingRef = useRef(null);
@@ -12,19 +13,19 @@ export default function GraphView({ notes, width = 480, height = 320 }) {
   const [, forceTick] = useState(0);
 
   useEffect(() => {
-    const tagSet = new Set();
-    notes.forEach((n) => (n.tags || []).forEach((t) => tagSet.add(t)));
+    const tagged = entries.filter((e) => e.skillId);
+    const skillSet = new Map();
+    tagged.forEach((e) => { if (!skillSet.has(e.skillId)) skillSet.set(e.skillId, e.skill); });
+
     const nodeData = [
-      ...notes.map((n) => ({
-        id: `note-${n.id}`,
-        type: "note",
-        category: n.category,
-        label: (n.title || n.text || "").slice(0, 10) + ((n.title || n.text || "").length > 10 ? "…" : ""),
+      ...tagged.map((e) => ({
+        id: `entry-${e.id}`,
+        type: "entry",
+        label: (e.text || "").slice(0, 10) + ((e.text || "").length > 10 ? "…" : ""),
       })),
-      ...Array.from(tagSet).map((t) => ({ id: `tag-${t}`, type: "tag", label: t })),
+      ...Array.from(skillSet.entries()).map(([id, name]) => ({ id: `skill-${id}`, type: "skill", label: name })),
     ];
-    const linkData = [];
-    notes.forEach((n) => (n.tags || []).forEach((t) => linkData.push({ source: `note-${n.id}`, target: `tag-${t}` })));
+    const linkData = tagged.map((e) => ({ source: `entry-${e.id}`, target: `skill-${e.skillId}` }));
 
     const sim = d3
       .forceSimulation(nodeData)
@@ -38,7 +39,7 @@ export default function GraphView({ notes, width = 480, height = 320 }) {
     simRef.current = sim;
     dataRef.current = { nodes: nodeData, links: linkData };
     return () => sim.stop();
-  }, [notes, width, height]);
+  }, [entries, width, height]);
 
   const toSvgPoint = (evt) => {
     const svg = svgRef.current;
@@ -69,8 +70,8 @@ export default function GraphView({ notes, width = 480, height = 320 }) {
 
   const { nodes, links } = dataRef.current;
 
-  if (!notes.length) {
-    return <div className="xl-entry__empty">还没有笔记,先去 Daily Insights 建一篇吧。</div>;
+  if (!entries.filter((e) => e.skillId).length) {
+    return <div className="xl-entry__empty">还没有已打标签的日记,先去「日记」写一篇吧。</div>;
   }
 
   return (
@@ -90,26 +91,24 @@ export default function GraphView({ notes, width = 480, height = 320 }) {
         ))}
         {nodes.map((n) => (
           <g key={n.id} transform={`translate(${n.x || 0},${n.y || 0})`} onMouseDown={handleDown(n)} style={{ cursor: "grab" }}>
-            <circle r={n.type === "tag" ? 5 : 8} fill={n.type === "tag" ? "#A23B3B" : CAT_COLOR[n.category]} stroke="#100D0B" strokeWidth={1.5} />
+            <circle r={n.type === "skill" ? 7 : 8} fill={n.type === "skill" ? SKILL_COLOR : ENTRY_COLOR} stroke="#100D0B" strokeWidth={1.5} />
             <text
               x={0}
-              y={n.type === "tag" ? -10 : 16}
+              y={n.type === "skill" ? -12 : 16}
               textAnchor="middle"
-              fontSize={n.type === "tag" ? 9 : 8}
+              fontSize={n.type === "skill" ? 9 : 8}
               fill="#EDE4D1"
               fontFamily="IBM Plex Mono, monospace"
               opacity={0.85}
             >
-              {n.type === "tag" ? `#${n.label}` : n.label}
+              {n.type === "skill" ? `★ ${n.label}` : n.label}
             </text>
           </g>
         ))}
       </svg>
       <div className="xl-graph-legend">
-        <span><span className="xl-legend-dot" style={{ background: "#92897A" }}></span>Input</span>
-        <span><span className="xl-legend-dot" style={{ background: "#5C8A72" }}></span>Permanent</span>
-        <span><span className="xl-legend-dot" style={{ background: "#E9C877" }}></span>Output</span>
-        <span><span className="xl-legend-dot" style={{ background: "#A23B3B" }}></span>标签 Tag</span>
+        <span><span className="xl-legend-dot" style={{ background: ENTRY_COLOR }}></span>日记</span>
+        <span><span className="xl-legend-dot" style={{ background: SKILL_COLOR }}></span>技能</span>
       </div>
     </div>
   );
