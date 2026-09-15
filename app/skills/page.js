@@ -1,13 +1,16 @@
 "use client";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from "recharts";
+import { Plus, ChevronRight } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { levelFromXp } from "@/lib/xp";
+import CreateSkillForm from "@/components/CreateSkillForm";
 
-export default function DashboardPage() {
-  const { data: skills, loading: skillsLoading } = useCollection("skills");
+export default function SkillsPage() {
+  const { data: skills, add: addSkill, loading: skillsLoading } = useCollection("skills");
   const { data: entries } = useCollection("entries");
-  const totalReflections = entries.filter((e) => e.reflection && e.reflection.trim()).length;
+  const [showCreate, setShowCreate] = useState(false);
 
   const radarData = useMemo(
     () =>
@@ -24,27 +27,24 @@ export default function DashboardPage() {
   return (
     <>
       <div className="xl-header">
-        <div>
-          <div className="xl-title">今日总览</div>
-          <div className="xl-subtitle">{new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" })}</div>
-        </div>
+        <div className="xl-title">技能与成长</div>
+        <button className="xl-btn--ghost" onClick={() => setShowCreate((v) => !v)} type="button">
+          <Plus size={12} style={{ marginRight: 6, verticalAlign: -2 }} />新技能
+        </button>
       </div>
-      <div className="xl-stat-row">
-        <div><div className="xl-stat__num">{skills.length}</div><div className="xl-stat__label">追踪技能</div></div>
-        <div><div className="xl-stat__num">{entries.length}</div><div className="xl-stat__label">总记录数</div></div>
-        <div><div className="xl-stat__num">{totalReflections}</div><div className="xl-stat__label">已写反省</div></div>
-      </div>
+
+      {showCreate && (
+        <CreateSkillForm addSkill={addSkill} onCreated={() => setShowCreate(false)} />
+      )}
 
       {!skillsLoading && skills.length === 0 ? (
-        <div className="xl-panel">还没有技能。点左边导航栏最下面的「+ 新增」创建你的第一个技能吧。</div>
+        <div className="xl-panel">还没有技能。点右上角「+ 新技能」创建第一个吧,或者在「日记」页写篇日记,AI 会自动帮你建。</div>
       ) : (
         <>
-          <div className="xl-subtitle" style={{ marginBottom: 14 }}>从左边导航栏点一个技能开始打卡,或者点「+ 新增」建立新的。</div>
-
-          {radarData.length >= 3 ? (
+          {radarData.length >= 3 && (
             <div className="xl-panel">
               <div className="xl-label" style={{ marginBottom: 10 }}>技能雷达图</div>
-              <div style={{ height: 340 }}>
+              <div style={{ height: 320 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <RadarChart data={radarData} outerRadius="72%">
                     <PolarGrid stroke="rgba(201,162,75,0.18)" />
@@ -60,13 +60,26 @@ export default function DashboardPage() {
                 </ResponsiveContainer>
               </div>
             </div>
-          ) : (
-            radarData.length > 0 && (
-              <div className="xl-panel">
-                <div className="xl-entry__empty">还需至少 3 个技能才能生成雷达图(目前 {radarData.length} 个)。</div>
-              </div>
-            )
           )}
+
+          <div className="xl-ledger">
+            {skills.map((s) => {
+              const level = levelFromXp(s.totalXp || 0);
+              const count = entries.filter((e) => e.skillId === s.id).length;
+              return (
+                <Link className="xl-row" key={s.id} href={`/skill/${s.id}`}>
+                  <div className="xl-row__idx">{s.icon || "✦"}</div>
+                  <div className="xl-row__name">
+                    {s.name}
+                    <small>{count} 条记录</small>
+                  </div>
+                  <div className="xl-row__lvl">LV.{level}</div>
+                  <div className="xl-row__pct">{s.totalXp || 0} XP</div>
+                  <ChevronRight size={16} className="xl-row__chev" />
+                </Link>
+              );
+            })}
+          </div>
         </>
       )}
     </>

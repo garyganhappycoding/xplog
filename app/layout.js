@@ -1,6 +1,5 @@
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
-import { GraphWindowProvider } from "@/context/GraphWindowContext";
 import AppShell from "@/components/AppShell";
 
 export const metadata = {
@@ -13,9 +12,7 @@ export default function RootLayout({ children }) {
     <html lang="zh">
       <body>
         <AuthProvider>
-          <GraphWindowProvider>
-            <AppShell>{children}</AppShell>
-          </GraphWindowProvider>
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>
