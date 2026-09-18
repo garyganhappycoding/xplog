@@ -216,6 +216,22 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-modal__msg { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
 .xl-modal__actions { display: flex; justify-content: flex-end; gap: 10px; }
 
+/* Diary tab: full-page writing area, not a boxed form field */
+.xl-diary-compose {
+  width: 100%;
+  min-height: 55vh;
+  background: transparent;
+  border: none;
+  color: var(--parchment);
+  font-size: 16px;
+  line-height: 1.85;
+  font-family: 'Noto Sans SC', sans-serif;
+  resize: vertical;
+  padding: 4px 2px;
+}
+.xl-diary-compose:focus { outline: none; }
+.xl-diary-compose::placeholder { color: var(--muted); }
+
 /* To-Do tab */
 .xl-project-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; }
 .xl-color-swatch { width: 24px; height: 24px; border-radius: 50%; border: none; cursor: pointer; padding: 0; }

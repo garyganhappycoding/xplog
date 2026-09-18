@@ -23,6 +23,12 @@ export default function TodoPage() {
 
   const [newTodoText, setNewTodoText] = useState("");
 
+  const [editingTodoId, setEditingTodoId] = useState(null);
+  const [editTodoText, setEditTodoText] = useState("");
+  const [editDoDate, setEditDoDate] = useState("");
+  const [editDueDate, setEditDueDate] = useState("");
+  const [savingTodo, setSavingTodo] = useState(false);
+
   useEffect(() => {
     if (!activeProjectId && projects.length) setActiveProjectId(projects[0].id);
   }, [projects, activeProjectId]);
@@ -64,8 +70,27 @@ export default function TodoPage() {
 
   const submitTodo = async () => {
     if (!newTodoText.trim() || !activeProjectId) return;
-    await addTodo({ projectId: activeProjectId, text: newTodoText.trim(), done: false, createdAt: Date.now() });
+    await addTodo({ projectId: activeProjectId, text: newTodoText.trim(), done: false, createdAt: Date.now(), doDate: null, dueDate: null });
     setNewTodoText("");
+  };
+
+  const startEditTodo = (t) => {
+    setEditingTodoId(t.id);
+    setEditTodoText(t.text);
+    setEditDoDate(t.doDate || "");
+    setEditDueDate(t.dueDate || "");
+  };
+
+  const saveEditTodo = async (t) => {
+    if (!editTodoText.trim()) return;
+    setSavingTodo(true);
+    await updateTodo(t.id, {
+      text: editTodoText.trim(),
+      doDate: editDoDate || null,
+      dueDate: editDueDate || null,
+    });
+    setSavingTodo(false);
+    setEditingTodoId(null);
   };
 
   return (
@@ -150,18 +175,58 @@ export default function TodoPage() {
           </div>
 
           {projectTodos.map((t) => (
-            <div className="xl-entry" key={t.id} style={{ padding: "10px 14px", display: "flex", alignItems: "center", gap: 12 }}>
-              <button
-                className={`xl-todo-check ${t.done ? "xl-todo-check--done" : ""}`}
-                onClick={() => updateTodo(t.id, { done: !t.done })}
-                type="button"
-              >
-                {t.done && <Check size={12} />}
-              </button>
-              <div className="xl-entry__text" style={{ flex: 1, textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.5 : 1 }}>
-                {t.text}
-              </div>
-              <button className="xl-entry__iconbtn xl-entry__iconbtn--danger" onClick={() => removeTodo(t.id)} type="button" title="删除"><XIcon size={12} /></button>
+            <div className="xl-entry" key={t.id} style={{ padding: "10px 14px" }}>
+              {editingTodoId === t.id ? (
+                <div>
+                  <input
+                    className="xl-input"
+                    value={editTodoText}
+                    onChange={(e) => setEditTodoText(e.target.value)}
+                    style={{ marginBottom: 10 }}
+                    autoFocus
+                  />
+                  <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <label className="xl-label">计划日期</label>
+                      <input className="xl-input" type="date" value={editDoDate} onChange={(e) => setEditDoDate(e.target.value)} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 140 }}>
+                      <label className="xl-label">截止日期</label>
+                      <input className="xl-input" type="date" value={editDueDate} onChange={(e) => setEditDueDate(e.target.value)} />
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => saveEditTodo(t)} disabled={savingTodo} type="button">
+                      <Check size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{savingTodo ? "保存中..." : "保存"}
+                    </button>
+                    <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setEditingTodoId(null)} type="button">
+                      <XIcon size={12} style={{ marginRight: 4, verticalAlign: -2 }} />取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <button
+                    className={`xl-todo-check ${t.done ? "xl-todo-check--done" : ""}`}
+                    onClick={() => updateTodo(t.id, { done: !t.done })}
+                    type="button"
+                  >
+                    {t.done && <Check size={12} />}
+                  </button>
+                  <div style={{ flex: 1, cursor: "pointer", minWidth: 0 }} onClick={() => startEditTodo(t)}>
+                    <div className="xl-entry__text" style={{ textDecoration: t.done ? "line-through" : "none", opacity: t.done ? 0.5 : 1 }}>
+                      {t.text}
+                    </div>
+                    {(t.doDate || t.dueDate) && (
+                      <div className="xl-entry__meta" style={{ marginTop: 4 }}>
+                        {t.doDate ? `计划 ${t.doDate}` : ""}{t.doDate && t.dueDate ? " · " : ""}{t.dueDate ? `截止 ${t.dueDate}` : ""}
+                      </div>
+                    )}
+                  </div>
+                  <button className="xl-entry__iconbtn" onClick={() => startEditTodo(t)} type="button" title="编辑"><Pencil size={12} /></button>
+                  <button className="xl-entry__iconbtn xl-entry__iconbtn--danger" onClick={() => removeTodo(t.id)} type="button" title="删除"><XIcon size={12} /></button>
+                </div>
+              )}
             </div>
           ))}
           {projectTodos.length === 0 && <div className="xl-entry__empty">这个项目还没有待办事项。</div>}

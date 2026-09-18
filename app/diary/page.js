@@ -5,6 +5,7 @@ import { Image as ImageIcon, Pencil, X as XIcon, Check } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { useAuth } from "@/context/AuthContext";
 import { storage } from "@/lib/firebase";
+import { ConfirmDialog } from "@/components/ui";
 
 const clampXp = (n) => Math.min(10, Math.max(1, Math.round(Number(n) || 1)));
 
@@ -19,16 +20,23 @@ async function resolveSkill(name, skills, addSkill) {
 export default function DiaryPage() {
   const { user } = useAuth();
   const { data: skills, add: addSkill, update: updateSkill } = useCollection("skills");
-  const { data: entries, add: addEntry, update: updateEntry } = useCollection("diaryEntries", "createdAt");
+  const { data: entries, add: addEntry, update: updateEntry, remove: removeEntry } = useCollection("diaryEntries", "createdAt");
 
   const [text, setText] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [editingId, setEditingId] = useState(null);
+  const [editingTagId, setEditingTagId] = useState(null);
   const [editSkillName, setEditSkillName] = useState("");
   const [editXp, setEditXp] = useState(1);
-  const [savingEdit, setSavingEdit] = useState(false);
+  const [savingTag, setSavingTag] = useState(false);
+
+  const [editingTextId, setEditingTextId] = useState(null);
+  const [editTextValue, setEditTextValue] = useState("");
+  const [savingText, setSavingText] = useState(false);
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const submit = async () => {
     if (!text.trim() || submitting) return;
@@ -80,15 +88,15 @@ export default function DiaryPage() {
     }
   };
 
-  const startEdit = (e) => {
-    setEditingId(e.id);
+  const startEditTag = (e) => {
+    setEditingTagId(e.id);
     setEditSkillName(e.skill || "");
     setEditXp(e.xpDelta || 1);
   };
 
-  const saveEdit = async (entry) => {
+  const saveEditTag = async (entry) => {
     if (!editSkillName.trim()) return;
-    setSavingEdit(true);
+    setSavingTag(true);
     const newXp = clampXp(editXp);
     const resolved = await resolveSkill(editSkillName, skills, addSkill);
 
@@ -104,23 +112,56 @@ export default function DiaryPage() {
     }
 
     await updateEntry(entry.id, { skill: resolved.name, skillId: resolved.id, xpDelta: newXp, aiTagged: false });
-    setSavingEdit(false);
-    setEditingId(null);
+    setSavingTag(false);
+    setEditingTagId(null);
+  };
+
+  const startEditText = (e) => {
+    setEditingTextId(e.id);
+    setEditTextValue(e.text);
+  };
+
+  const saveEditText = async (entry) => {
+    if (!editTextValue.trim()) return;
+    setSavingText(true);
+    await updateEntry(entry.id, { text: editTextValue.trim() });
+    setSavingText(false);
+    setEditingTextId(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    if (deleteTarget.skillId) {
+      const skill = skills.find((s) => s.id === deleteTarget.skillId);
+      if (skill) await updateSkill(skill.id, { totalXp: Math.max(0, (skill.totalXp || 0) - (deleteTarget.xpDelta || 0)) });
+    }
+    await removeEntry(deleteTarget.id);
+    setDeleting(false);
+    setDeleteTarget(null);
   };
 
   return (
     <>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="删除这篇日记?"
+        message={deleteTarget?.skillId ? `删除后无法恢复,对应技能「${deleteTarget.skill}」的 ${deleteTarget.xpDelta} XP 也会被扣除。` : "删除后无法恢复。"}
+        confirmLabel={deleting ? "删除中..." : "确认删除"}
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
+
       <div className="xl-header"><div className="xl-title">日记</div></div>
 
-      <div className="xl-field">
-        <textarea
-          className="xl-input"
-          style={{ minHeight: 100 }}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="今天做了什么?写下来,AI 会自动判断属于哪个技能、值多少 XP。"
-        />
-      </div>
+      <textarea
+        className="xl-diary-compose"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="今天做了什么?写下来,AI 会自动判断属于哪个技能、值多少 XP。"
+        autoFocus
+      />
+      <div className="xl-divider" />
       <div className="xl-field" style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <label className="xl-btn--ghost" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
           <ImageIcon size={14} />
@@ -135,9 +176,36 @@ export default function DiaryPage() {
       {entries.map((e) => (
         <div className="xl-entry" key={e.id}>
           {e.photoUrl && <img src={e.photoUrl} alt="" style={{ maxWidth: "100%", borderRadius: 4, marginBottom: 10 }} />}
-          <div className="xl-entry__text" style={{ marginBottom: 10 }}>{e.text}</div>
 
-          {editingId === e.id ? (
+          {editingTextId === e.id ? (
+            <div style={{ marginBottom: 10 }}>
+              <textarea
+                className="xl-input"
+                value={editTextValue}
+                onChange={(ev) => setEditTextValue(ev.target.value)}
+                style={{ minHeight: 100, marginBottom: 8 }}
+                autoFocus
+              />
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => saveEditText(e)} disabled={savingText} type="button">
+                  <Check size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{savingText ? "保存中..." : "保存"}
+                </button>
+                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setEditingTextId(null)} type="button">
+                  <XIcon size={12} style={{ marginRight: 4, verticalAlign: -2 }} />取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
+              <div className="xl-entry__text" style={{ flex: 1 }}>{e.text}</div>
+              <div className="xl-entry__actions" style={{ flexShrink: 0 }}>
+                <button className="xl-entry__iconbtn" onClick={() => startEditText(e)} type="button" title="编辑"><Pencil size={12} /></button>
+                <button className="xl-entry__iconbtn xl-entry__iconbtn--danger" onClick={() => setDeleteTarget(e)} type="button" title="删除"><XIcon size={12} /></button>
+              </div>
+            </div>
+          )}
+
+          {editingTagId === e.id ? (
             <div className="xl-panel" style={{ margin: 0 }}>
               <div className="xl-field">
                 <label className="xl-label">技能(可从已有技能里选,或直接输入新名字)</label>
@@ -165,16 +233,16 @@ export default function DiaryPage() {
                 />
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => saveEdit(e)} disabled={savingEdit} type="button">
-                  <Check size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{savingEdit ? "保存中..." : "保存"}
+                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => saveEditTag(e)} disabled={savingTag} type="button">
+                  <Check size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{savingTag ? "保存中..." : "保存"}
                 </button>
-                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setEditingId(null)} type="button">
+                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setEditingTagId(null)} type="button">
                   <XIcon size={12} style={{ marginRight: 4, verticalAlign: -2 }} />取消
                 </button>
               </div>
             </div>
           ) : e.skillId ? (
-            <span className="xl-tagpill" style={{ cursor: "pointer" }} onClick={() => startEdit(e)}>
+            <span className="xl-tagpill" style={{ cursor: "pointer" }} onClick={() => startEditTag(e)}>
               {e.skill} +{e.xpDelta} XP <Pencil size={9} />
             </span>
           ) : (

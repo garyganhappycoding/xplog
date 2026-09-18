@@ -10,6 +10,7 @@ import CreateSkillForm from "@/components/CreateSkillForm";
 export default function SkillsPage() {
   const { data: skills, add: addSkill, loading: skillsLoading } = useCollection("skills");
   const { data: entries } = useCollection("entries");
+  const { data: diaryEntries } = useCollection("diaryEntries");
   const [showCreate, setShowCreate] = useState(false);
 
   const radarData = useMemo(
@@ -65,7 +66,7 @@ export default function SkillsPage() {
           <div className="xl-ledger">
             {skills.map((s) => {
               const level = levelFromXp(s.totalXp || 0);
-              const count = entries.filter((e) => e.skillId === s.id).length;
+              const count = entries.filter((e) => e.skillId === s.id).length + diaryEntries.filter((e) => e.skillId === s.id).length;
               return (
                 <Link className="xl-row" key={s.id} href={`/skill/${s.id}`}>
                   <div className="xl-row__idx">{s.icon || "✦"}</div>
