@@ -8,6 +8,7 @@ import { useCollection } from "@/lib/useCollection";
 import { progressInLevel, xpToReach, EFFORT_SCORE, EFFORT_LABEL, levelFromXp, xpGainForEntry } from "@/lib/xp";
 import { ProgressBar, Pill, LevelUpSeal, ConfirmDialog } from "@/components/ui";
 import EmojiPicker from "@/components/EmojiPicker";
+import ExpandableText from "@/components/ExpandableText";
 
 export default function SkillDetailPage() {
   const { id } = useParams();
@@ -385,7 +386,7 @@ export default function SkillDetailPage() {
                       </span>
                     </div>
                   </div>
-                  {e.reflection ? <div className="xl-entry__text">{e.reflection}</div> : <div className="xl-entry__empty">未写反省</div>}
+                  {e.reflection ? <ExpandableText text={e.reflection} /> : <div className="xl-entry__empty">未写反省</div>}
                 </>
               )}
             </div>

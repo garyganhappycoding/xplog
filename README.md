@@ -114,7 +114,7 @@ lib/
 - `users/{uid}/merits/{meritId}` — `{ type: "merit" | "demerit", text, createdAt }`
 - `users/{uid}/projects/{projectId}` — `{ name, color?, createdAt, order }`
 - `users/{uid}/todos/{todoId}` — `{ projectId, text, done, createdAt, dueDate? }`
-- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, skill, skillId, xpDelta, aiTagged, confidence, createdAt }`
+- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, tags: [], skill, skillId, xpDelta, aiTagged, confidence, createdAt }`
 
 ## 关于关系图
 

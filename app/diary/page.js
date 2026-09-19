@@ -1,11 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Image as ImageIcon, Pencil, X as XIcon, Check } from "lucide-react";
+import { Image as ImageIcon, Pencil, X as XIcon, Check, Tag as TagIcon } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { useAuth } from "@/context/AuthContext";
 import { storage } from "@/lib/firebase";
 import { ConfirmDialog } from "@/components/ui";
+import ExpandableText from "@/components/ExpandableText";
+import TagInput from "@/components/TagInput";
 
 const clampXp = (n) => Math.min(10, Math.max(1, Math.round(Number(n) || 1)));
 
@@ -24,7 +26,14 @@ export default function DiaryPage() {
 
   const [text, setText] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
+  const [composeTags, setComposeTags] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const allTags = useMemo(() => {
+    const s = new Set();
+    entries.forEach((e) => (e.tags || []).forEach((t) => s.add(t)));
+    return Array.from(s);
+  }, [entries]);
 
   const [editingTagId, setEditingTagId] = useState(null);
   const [editSkillName, setEditSkillName] = useState("");
@@ -37,6 +46,13 @@ export default function DiaryPage() {
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [editingTopicTagsId, setEditingTopicTagsId] = useState(null);
+  const [editTopicTags, setEditTopicTags] = useState([]);
+  const [savingTopicTags, setSavingTopicTags] = useState(false);
+
+  const [filterTag, setFilterTag] = useState(null);
+  const visibleEntries = filterTag ? entries.filter((e) => (e.tags || []).includes(filterTag)) : entries;
 
   const submit = async () => {
     if (!text.trim() || submitting) return;
@@ -53,6 +69,7 @@ export default function DiaryPage() {
     const entryRef = await addEntry({
       text: text.trim(),
       photoUrl,
+      tags: composeTags,
       createdAt: Date.now(),
       skill: null,
       skillId: null,
@@ -63,6 +80,7 @@ export default function DiaryPage() {
 
     setText("");
     setPhotoFile(null);
+    setComposeTags([]);
     setSubmitting(false);
 
     try {
@@ -129,6 +147,18 @@ export default function DiaryPage() {
     setEditingTextId(null);
   };
 
+  const startEditTopicTags = (e) => {
+    setEditingTopicTagsId(e.id);
+    setEditTopicTags(e.tags || []);
+  };
+
+  const saveTopicTags = async (entry) => {
+    setSavingTopicTags(true);
+    await updateEntry(entry.id, { tags: editTopicTags });
+    setSavingTopicTags(false);
+    setEditingTopicTagsId(null);
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -161,6 +191,7 @@ export default function DiaryPage() {
         placeholder="今天做了什么?写下来,AI 会自动判断属于哪个技能、值多少 XP。"
         autoFocus
       />
+      <TagInput tags={composeTags} setTags={setComposeTags} allTags={allTags} />
       <div className="xl-divider" />
       <div className="xl-field" style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <label className="xl-btn--ghost" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
@@ -173,7 +204,14 @@ export default function DiaryPage() {
         </button>
       </div>
 
-      {entries.map((e) => (
+      {filterTag && (
+        <div className="xl-subtitle" style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 8 }}>
+          筛选标签: <span className="xl-topictag">#{filterTag}</span>
+          <button className="xl-entry__iconbtn" onClick={() => setFilterTag(null)} type="button" title="清除筛选"><XIcon size={12} /></button>
+        </div>
+      )}
+
+      {visibleEntries.map((e) => (
         <div className="xl-entry" key={e.id}>
           {e.photoUrl && <img src={e.photoUrl} alt="" style={{ maxWidth: "100%", borderRadius: 4, marginBottom: 10 }} />}
 
@@ -197,11 +235,34 @@ export default function DiaryPage() {
             </div>
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-              <div className="xl-entry__text" style={{ flex: 1 }}>{e.text}</div>
+              <div style={{ flex: 1, minWidth: 0 }}><ExpandableText text={e.text} /></div>
               <div className="xl-entry__actions" style={{ flexShrink: 0 }}>
                 <button className="xl-entry__iconbtn" onClick={() => startEditText(e)} type="button" title="编辑"><Pencil size={12} /></button>
                 <button className="xl-entry__iconbtn xl-entry__iconbtn--danger" onClick={() => setDeleteTarget(e)} type="button" title="删除"><XIcon size={12} /></button>
               </div>
+            </div>
+          )}
+
+          {editingTopicTagsId === e.id ? (
+            <div style={{ marginBottom: 10 }}>
+              <TagInput tags={editTopicTags} setTags={setEditTopicTags} allTags={allTags} />
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => saveTopicTags(e)} disabled={savingTopicTags} type="button">
+                  <Check size={12} style={{ marginRight: 4, verticalAlign: -2 }} />{savingTopicTags ? "保存中..." : "保存"}
+                </button>
+                <button className="xl-btn--ghost" style={{ padding: "6px 14px", fontSize: 12 }} onClick={() => setEditingTopicTagsId(null)} type="button">
+                  <XIcon size={12} style={{ marginRight: 4, verticalAlign: -2 }} />取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 4, marginBottom: 10 }}>
+              {(e.tags || []).map((t) => (
+                <span className="xl-topictag" style={{ cursor: "pointer" }} key={t} onClick={() => setFilterTag(t)}>#{t}</span>
+              ))}
+              <button className="xl-entry__iconbtn" onClick={() => startEditTopicTags(e)} type="button" title="编辑标签">
+                <TagIcon size={11} />
+              </button>
             </div>
           )}
 
@@ -250,7 +311,9 @@ export default function DiaryPage() {
           )}
         </div>
       ))}
-      {entries.length === 0 && <div className="xl-entry__empty">还没有日记,写下第一篇吧。</div>}
+      {visibleEntries.length === 0 && (
+        <div className="xl-entry__empty">{filterTag ? "没有带这个标签的日记。" : "还没有日记,写下第一篇吧。"}</div>
+      )}
     </>
   );
 }

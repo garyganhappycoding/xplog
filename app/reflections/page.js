@@ -1,6 +1,7 @@
 "use client";
 import { useMemo } from "react";
 import { useCollection } from "@/lib/useCollection";
+import ExpandableText from "@/components/ExpandableText";
 
 export default function ReflectionsPage() {
   const { data: entries } = useCollection("entries", "createdAt");
@@ -40,7 +41,7 @@ export default function ReflectionsPage() {
               {skillName(e.skillId)}{e.result === null ? " · 日记" : ""}
             </span>
           </div>
-          <div className="xl-entry__text">{e.text}</div>
+          <ExpandableText text={e.text} />
         </div>
       ))}
       {combined.length === 0 && <div className="xl-entry__empty">还没有反省记录</div>}
