@@ -1,11 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Image as ImageIcon, Pencil, X as XIcon, Check, Tag as TagIcon } from "lucide-react";
+import { Image as ImageIcon, Pencil, X as XIcon, Check, Tag as TagIcon, Plus } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { useAuth } from "@/context/AuthContext";
 import { storage } from "@/lib/firebase";
-import { ConfirmDialog } from "@/components/ui";
+import { ConfirmDialog, Pill } from "@/components/ui";
 import ExpandableText from "@/components/ExpandableText";
 import TagInput from "@/components/TagInput";
 
@@ -39,6 +39,7 @@ export default function DiaryPage() {
   const [editSkillName, setEditSkillName] = useState("");
   const [editXp, setEditXp] = useState(1);
   const [savingTag, setSavingTag] = useState(false);
+  const [showNewSkillInput, setShowNewSkillInput] = useState(false);
 
   const [editingTextId, setEditingTextId] = useState(null);
   const [editTextValue, setEditTextValue] = useState("");
@@ -110,6 +111,7 @@ export default function DiaryPage() {
     setEditingTagId(e.id);
     setEditSkillName(e.skill || "");
     setEditXp(e.xpDelta || 1);
+    setShowNewSkillInput(false);
   };
 
   const saveEditTag = async (entry) => {
@@ -269,17 +271,35 @@ export default function DiaryPage() {
           {editingTagId === e.id ? (
             <div className="xl-panel" style={{ margin: 0 }}>
               <div className="xl-field">
-                <label className="xl-label">技能(可从已有技能里选,或直接输入新名字)</label>
-                <input
-                  className="xl-input"
-                  list="xl-skill-options"
-                  value={editSkillName}
-                  onChange={(ev) => setEditSkillName(ev.target.value)}
-                  placeholder="技能名称"
-                />
-                <datalist id="xl-skill-options">
-                  {skills.map((s) => <option key={s.id} value={s.name} />)}
-                </datalist>
+                <label className="xl-label">技能(点选已有技能,避免建出重复的技能)</label>
+                <div className="xl-pillrow">
+                  {skills.map((s) => (
+                    <Pill
+                      key={s.id}
+                      active={!showNewSkillInput && editSkillName === s.name}
+                      onClick={() => { setEditSkillName(s.name); setShowNewSkillInput(false); }}
+                    >
+                      {s.icon ? `${s.icon} ` : ""}{s.name}
+                    </Pill>
+                  ))}
+                  <button
+                    type="button"
+                    className={`xl-pill xl-pill--dashed ${showNewSkillInput ? "xl-pill--active" : ""}`}
+                    onClick={() => { setShowNewSkillInput(true); setEditSkillName(""); }}
+                  >
+                    <Plus size={12} /> 新技能
+                  </button>
+                </div>
+                {showNewSkillInput && (
+                  <input
+                    className="xl-input"
+                    style={{ marginTop: 10 }}
+                    value={editSkillName}
+                    onChange={(ev) => setEditSkillName(ev.target.value)}
+                    placeholder="新技能名称"
+                    autoFocus
+                  />
+                )}
               </div>
               <div className="xl-field">
                 <label className="xl-label">XP(1-10)</label>
