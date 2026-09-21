@@ -18,12 +18,12 @@ export default function SkillsPage() {
       skills.map((s) => ({
         skill: s.name.length > 6 ? `${s.name.slice(0, 6)}…` : s.name,
         fullName: s.name,
-        level: levelFromXp(s.totalXp || 0),
+        xp: s.totalXp || 0,
       })),
     [skills]
   );
-  const maxLevel = radarData.reduce((m, d) => Math.max(m, d.level), 0);
-  const radiusMax = Math.max(5, maxLevel + 1);
+  const maxXp = radarData.reduce((m, d) => Math.max(m, d.xp), 0);
+  const radiusMax = Math.max(10, Math.ceil((maxXp || 1) / 10) * 10);
 
   return (
     <>
@@ -50,12 +50,12 @@ export default function SkillsPage() {
                   <RadarChart data={radarData} outerRadius="72%">
                     <PolarGrid stroke="rgba(201,162,75,0.18)" />
                     <PolarAngleAxis dataKey="skill" tick={{ fill: "#EDE4D1", fontSize: 12 }} />
-                    <PolarRadiusAxis angle={90} domain={[0, radiusMax]} tickCount={radiusMax + 1} tick={{ fill: "#92897A", fontSize: 10 }} />
-                    <Radar dataKey="level" stroke="#E9C877" fill="#E9C877" fillOpacity={0.28} strokeWidth={2} />
+                    <PolarRadiusAxis angle={90} domain={[0, radiusMax]} tickCount={5} tick={{ fill: "#92897A", fontSize: 10 }} />
+                    <Radar dataKey="xp" stroke="#E9C877" fill="#E9C877" fillOpacity={0.28} strokeWidth={2} />
                     <Tooltip
                       contentStyle={{ background: "#1B1712", border: "1px solid rgba(201,162,75,0.25)", fontSize: 12, borderRadius: 4 }}
                       labelStyle={{ color: "#EDE4D1" }}
-                      formatter={(value, name, props) => [`LV.${value}`, props.payload.fullName]}
+                      formatter={(value, name, props) => [`${value} XP`, props.payload.fullName]}
                     />
                   </RadarChart>
                 </ResponsiveContainer>

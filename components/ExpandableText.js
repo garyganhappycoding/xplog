@@ -12,11 +12,15 @@ export default function ExpandableText({ text, lines = 3, className = "xl-entry_
     if (!el) return;
     const measure = () => setOverflows(el.scrollHeight > el.clientHeight + 2);
     measure();
-    // Re-measure once web fonts finish loading — initial measurement can run
-    // against a fallback font's metrics and mis-detect overflow by a line.
+    // Re-measure once web fonts finish loading (fallback-font metrics can
+    // mis-detect overflow by a line) and once more after layout has fully
+    // settled (a raf pair, since the very first effect run can fire before
+    // the browser has committed final layout/paint).
     if (typeof document !== "undefined" && document.fonts?.ready) {
       document.fonts.ready.then(measure);
     }
+    const raf = requestAnimationFrame(() => requestAnimationFrame(measure));
+    return () => cancelAnimationFrame(raf);
   }, [text]);
 
   return (
