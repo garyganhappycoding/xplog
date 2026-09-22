@@ -264,3 +264,4 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 }
 .xl-entry__iconbtn:hover { border-color: var(--hairline); color: var(--parchment); }
 .xl-entry__iconbtn--danger:hover { border-color: rgba(162,59,59,0.4); color: #C77A70; }
+.xl-entry__iconbtn--active { color: var(--gold-bright); border-color: var(--gold-bright); }

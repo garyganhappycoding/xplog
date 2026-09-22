@@ -1,7 +1,7 @@
 "use client";
 import { useMemo, useState } from "react";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { Image as ImageIcon, Pencil, X as XIcon, Check, Tag as TagIcon, Plus } from "lucide-react";
+import { Image as ImageIcon, Pencil, X as XIcon, Check, Tag as TagIcon, Plus, Lightbulb } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { useAuth } from "@/context/AuthContext";
 import { storage } from "@/lib/firebase";
@@ -19,10 +19,12 @@ async function resolveSkill(name, skills, addSkill) {
   return { id: ref.id, name: clean, totalXp: 0 };
 }
 
-// Entries tagged "idea" get pushed to the Notion Idea Vault. One-shot, one-way:
-// syncs once (recorded via notionPageId) and never re-syncs on later edits.
-async function syncIdeaIfNeeded(entryId, tags, text, photoUrl, skillName, alreadySynced, updateEntry) {
-  if (!tags.includes("idea") || alreadySynced) return;
+// Entries marked with the 💡 idea toggle get pushed to the Notion Idea Vault.
+// One-shot, one-way: syncs once (recorded via notionPageId) and never
+// re-syncs on later edits. Separate from the free-form topic tags and from
+// the AI-inferred skill - marking/unmarking an idea never touches either.
+async function syncIdeaIfNeeded(entryId, text, photoUrl, skillName, alreadySynced, updateEntry) {
+  if (alreadySynced) return;
   try {
     const res = await fetch("/api/sync-idea", {
       method: "POST",
@@ -44,6 +46,7 @@ export default function DiaryPage() {
   const [text, setText] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [composeTags, setComposeTags] = useState([]);
+  const [composeIsIdea, setComposeIsIdea] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const allTags = useMemo(() => {
@@ -78,6 +81,7 @@ export default function DiaryPage() {
 
     const entryText = text.trim();
     const tags = composeTags;
+    const isIdea = composeIsIdea;
 
     let photoUrl = null;
     if (photoFile && user) {
@@ -91,6 +95,7 @@ export default function DiaryPage() {
       text: entryText,
       photoUrl,
       tags,
+      isIdea,
       createdAt: Date.now(),
       skill: null,
       skillId: null,
@@ -103,6 +108,7 @@ export default function DiaryPage() {
     setText("");
     setPhotoFile(null);
     setComposeTags([]);
+    setComposeIsIdea(false);
     setSubmitting(false);
 
     try {
@@ -121,12 +127,12 @@ export default function DiaryPage() {
         aiTagged: true,
         confidence: tag.confidence || 0,
       });
-      await syncIdeaIfNeeded(entryRef.id, tags, entryText, photoUrl, resolved.name, false, updateEntry);
+      if (isIdea) await syncIdeaIfNeeded(entryRef.id, entryText, photoUrl, resolved.name, false, updateEntry);
     } catch {
       const resolved = await resolveSkill("Uncategorized", skills, addSkill);
       await updateSkill(resolved.id, { totalXp: resolved.totalXp + 1 });
       await updateEntry(entryRef.id, { skill: resolved.name, skillId: resolved.id, xpDelta: 1, aiTagged: true, confidence: 0 });
-      await syncIdeaIfNeeded(entryRef.id, tags, entryText, photoUrl, resolved.name, false, updateEntry);
+      if (isIdea) await syncIdeaIfNeeded(entryRef.id, entryText, photoUrl, resolved.name, false, updateEntry);
     }
   };
 
@@ -180,9 +186,14 @@ export default function DiaryPage() {
   const saveTopicTags = async (entry) => {
     setSavingTopicTags(true);
     await updateEntry(entry.id, { tags: editTopicTags });
-    await syncIdeaIfNeeded(entry.id, editTopicTags, entry.text, entry.photoUrl, entry.skill, !!entry.notionPageId, updateEntry);
     setSavingTopicTags(false);
     setEditingTopicTagsId(null);
+  };
+
+  const toggleIsIdea = async (entry) => {
+    const next = !entry.isIdea;
+    await updateEntry(entry.id, { isIdea: next });
+    if (next) await syncIdeaIfNeeded(entry.id, entry.text, entry.photoUrl, entry.skill, !!entry.notionPageId, updateEntry);
   };
 
   const confirmDelete = async () => {
@@ -219,12 +230,20 @@ export default function DiaryPage() {
       />
       <TagInput tags={composeTags} setTags={setComposeTags} allTags={allTags} />
       <div className="xl-divider" />
-      <div className="xl-field" style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <div className="xl-field" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <label className="xl-btn--ghost" style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
           <ImageIcon size={14} />
           {photoFile ? photoFile.name : "添加照片(可选)"}
           <input type="file" accept="image/*" hidden onChange={(e) => setPhotoFile(e.target.files?.[0] || null)} />
         </label>
+        <button
+          type="button"
+          className={`xl-pill ${composeIsIdea ? "xl-pill--active" : ""}`}
+          onClick={() => setComposeIsIdea((v) => !v)}
+          title="标记为想法,会同步到 Notion Idea Vault"
+        >
+          <Lightbulb size={12} style={{ marginRight: 6, verticalAlign: -2 }} />想法
+        </button>
         <button className="xl-btn" onClick={submit} disabled={!text.trim() || submitting} type="button">
           {submitting ? "保存中..." : "保存日记"}
         </button>
@@ -286,10 +305,18 @@ export default function DiaryPage() {
               {(e.tags || []).map((t) => (
                 <span className="xl-topictag" style={{ cursor: "pointer" }} key={t} onClick={() => setFilterTag(t)}>#{t}</span>
               ))}
-              {e.notionPageId && <span className="xl-topictag" style={{ opacity: 0.7 }} title="已同步到 Idea Vault">✓ Notion</span>}
               <button className="xl-entry__iconbtn" onClick={() => startEditTopicTags(e)} type="button" title="编辑标签">
                 <TagIcon size={11} />
               </button>
+              <button
+                className={`xl-entry__iconbtn ${e.isIdea ? "xl-entry__iconbtn--active" : ""}`}
+                onClick={() => toggleIsIdea(e)}
+                type="button"
+                title={e.isIdea ? "取消标记为想法" : "标记为想法,会同步到 Notion Idea Vault"}
+              >
+                <Lightbulb size={11} />
+              </button>
+              {e.notionPageId && <span className="xl-topictag" style={{ opacity: 0.7 }} title="已同步到 Idea Vault">✓ Notion</span>}
             </div>
           )}
 

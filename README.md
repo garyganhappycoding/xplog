@@ -7,7 +7,7 @@
 - **Next.js 16**(App Router)+ React 19
 - **Firebase**(Google 登录 + Firestore 实时数据库 + Storage 图片存储)
 - **xAI Grok API**(日记自动打标签:推断技能 + XP)
-- **Notion API**(标记 #idea 的日记条目自动同步到 Notion 的 Idea Vault 数据库)
+- **Notion API**(点亮「💡 想法」的日记条目自动同步到 Notion 的 Idea Vault 数据库)
 - **d3-force**(关系图的力导向布局与拖拽)
 - **recharts**(XP 曲线图 / 雷达图)
 - **lucide-react**(图标)
@@ -28,7 +28,7 @@
 
 3. 在 [x.ai](https://x.ai/) 申请一个 Grok API key(用于日记自动打标签)。
 
-4. (可选)如果要用「日记打 #idea 标签自动同步到 Notion Idea Vault」功能:
+4. (可选)如果要用「日记点亮 💡 想法自动同步到 Notion Idea Vault」功能:
    - 去 [notion.so/my-integrations](https://www.notion.so/my-integrations) 建一个 internal integration,复制它的 secret(以 `ntn_` 或 `secret_` 开头)。
    - 打开 Notion 里的 Idea Vault 数据库,右上角 `···` → **Connections**,把刚建的 integration 加进去(不加的话 API 调用会报权限错误)。
    - Idea Vault 的 data source ID 就是 `0becc330-4e93-4c07-9bfe-880c15d4de6b`(已经在共享给 Claude 的 workspace 里确认过)。
@@ -53,7 +53,7 @@
    NOTION_IDEA_VAULT_DATA_SOURCE_ID=0becc330-4e93-4c07-9bfe-880c15d4de6b
    ```
 
-   Notion 这两项留空也没关系,只是 #idea 标签的日记不会同步过去,其它功能不受影响。
+   Notion 这两项留空也没关系,只是点亮「💡 想法」不会同步过去,其它功能不受影响。
 
 6. 把 `firestore.rules` 的内容贴到 Firebase Console 的 **Firestore Database → 规则**,把 `storage.rules` 的内容贴到 **Storage → 规则**,分别发布(确保每个用户只能读写自己 uid 底下的数据)。
 
@@ -93,7 +93,7 @@ app/
   page.js                根路径重定向到 /todo
   globals.css            暗金账本主题的全局样式
   api/tag-entry/route.js 日记自动打标签(调用 Grok API)
-  api/sync-idea/route.js 把打了 #idea 标签的日记同步到 Notion Idea Vault
+  api/sync-idea/route.js 把点亮「💡 想法」的日记同步到 Notion Idea Vault
   todo/page.js            待办(项目分组)
   diary/page.js           日记(AI 自动打标签)
   skills/page.js          技能成长(雷达图 + 技能列表)
@@ -125,11 +125,11 @@ lib/
 - `users/{uid}/merits/{meritId}` — `{ type: "merit" | "demerit", text, createdAt }`
 - `users/{uid}/projects/{projectId}` — `{ name, color?, createdAt, order }`
 - `users/{uid}/todos/{todoId}` — `{ projectId, text, done, createdAt, dueDate? }`
-- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, tags: [], skill, skillId, xpDelta, aiTagged, confidence, createdAt, notionPageId? }`
+- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, tags: [], isIdea, skill, skillId, xpDelta, aiTagged, confidence, createdAt, notionPageId? }`
 
 ## Notion 同步(Idea Vault)
 
-日记条目打上 `idea` 标签(在标签框里输入 `：idea`)后,会自动在 Notion 的 **Idea Vault** 数据库里创建一条记录:
+日记条目有一个独立于标签和技能的「💡 想法」开关(写日记时或每条记录下方都有),点亮后会自动在 Notion 的 **Idea Vault** 数据库里创建一条记录:
 
 - `Name` = 日记开头前 80 字
 - `Notes` = 完整日记正文
@@ -138,7 +138,7 @@ lib/
 - `XPLog ID` = 日记的 Firestore 文档 ID(新加的字段,防止重复同步)
 - `Screenshot` = 日记照片(如果有)
 
-只在标签第一次变成包含 `idea` 时同步一次(记录在 `diaryEntries.notionPageId` 上),之后编辑日记正文或技能不会再更新 Notion 那边的记录。没配置 `NOTION_API_KEY` / `NOTION_IDEA_VAULT_DATA_SOURCE_ID` 的话,打 `idea` 标签就只是本地标签,不会报错也不会同步。
+只在第一次点亮「想法」时同步一次(记录在 `diaryEntries.notionPageId` 上),之后编辑日记正文、技能或关掉想法开关都不会再更新/删除 Notion 那边的记录。没配置 `NOTION_API_KEY` / `NOTION_IDEA_VAULT_DATA_SOURCE_ID` 的话,点亮「想法」就只是本地标记,不会报错也不会同步。
 
 ## 关于关系图
 
