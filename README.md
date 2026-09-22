@@ -134,7 +134,7 @@ lib/
 - `Name` = 日记开头前 80 字
 - `Notes` = 完整日记正文
 - `Status` = `Inbox`(走 Idea Vault 原本的 Inbox → Reviewed → Organized 流程)
-- `Skill` = 这篇日记被打上的技能(新加的字段)
+- `Skill` = 这篇日记被打上的技能(新加的字段,multi-select 类型;技能名第一次出现时会自动变成新选项)
 - `XPLog ID` = 日记的 Firestore 文档 ID(新加的字段,防止重复同步)
 - `Screenshot` = 日记照片(如果有)
 
