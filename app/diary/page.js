@@ -19,6 +19,23 @@ async function resolveSkill(name, skills, addSkill) {
   return { id: ref.id, name: clean, totalXp: 0 };
 }
 
+// Entries tagged "idea" get pushed to the Notion Idea Vault. One-shot, one-way:
+// syncs once (recorded via notionPageId) and never re-syncs on later edits.
+async function syncIdeaIfNeeded(entryId, tags, text, photoUrl, skillName, alreadySynced, updateEntry) {
+  if (!tags.includes("idea") || alreadySynced) return;
+  try {
+    const res = await fetch("/api/sync-idea", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, photoUrl, entryId, skill: skillName }),
+    });
+    const data = await res.json();
+    if (data.pageId) await updateEntry(entryId, { notionPageId: data.pageId });
+  } catch {
+    // best-effort; editing the tags again will retry
+  }
+}
+
 export default function DiaryPage() {
   const { user } = useAuth();
   const { data: skills, add: addSkill, update: updateSkill } = useCollection("skills");
@@ -59,6 +76,9 @@ export default function DiaryPage() {
     if (!text.trim() || submitting) return;
     setSubmitting(true);
 
+    const entryText = text.trim();
+    const tags = composeTags;
+
     let photoUrl = null;
     if (photoFile && user) {
       const path = `users/${user.uid}/diary-photos/${Date.now()}-${photoFile.name}`;
@@ -68,15 +88,16 @@ export default function DiaryPage() {
     }
 
     const entryRef = await addEntry({
-      text: text.trim(),
+      text: entryText,
       photoUrl,
-      tags: composeTags,
+      tags,
       createdAt: Date.now(),
       skill: null,
       skillId: null,
       xpDelta: 0,
       aiTagged: false,
       confidence: 0,
+      notionPageId: null,
     });
 
     setText("");
@@ -88,7 +109,7 @@ export default function DiaryPage() {
       const res = await fetch("/api/tag-entry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: text.trim(), existingSkills: skills.map((s) => s.name) }),
+        body: JSON.stringify({ text: entryText, existingSkills: skills.map((s) => s.name) }),
       });
       const tag = await res.json();
       const resolved = await resolveSkill(tag.skill || "Uncategorized", skills, addSkill);
@@ -100,10 +121,12 @@ export default function DiaryPage() {
         aiTagged: true,
         confidence: tag.confidence || 0,
       });
+      await syncIdeaIfNeeded(entryRef.id, tags, entryText, photoUrl, resolved.name, false, updateEntry);
     } catch {
       const resolved = await resolveSkill("Uncategorized", skills, addSkill);
       await updateSkill(resolved.id, { totalXp: resolved.totalXp + 1 });
       await updateEntry(entryRef.id, { skill: resolved.name, skillId: resolved.id, xpDelta: 1, aiTagged: true, confidence: 0 });
+      await syncIdeaIfNeeded(entryRef.id, tags, entryText, photoUrl, resolved.name, false, updateEntry);
     }
   };
 
@@ -157,6 +180,7 @@ export default function DiaryPage() {
   const saveTopicTags = async (entry) => {
     setSavingTopicTags(true);
     await updateEntry(entry.id, { tags: editTopicTags });
+    await syncIdeaIfNeeded(entry.id, editTopicTags, entry.text, entry.photoUrl, entry.skill, !!entry.notionPageId, updateEntry);
     setSavingTopicTags(false);
     setEditingTopicTagsId(null);
   };
@@ -262,6 +286,7 @@ export default function DiaryPage() {
               {(e.tags || []).map((t) => (
                 <span className="xl-topictag" style={{ cursor: "pointer" }} key={t} onClick={() => setFilterTag(t)}>#{t}</span>
               ))}
+              {e.notionPageId && <span className="xl-topictag" style={{ opacity: 0.7 }} title="已同步到 Idea Vault">✓ Notion</span>}
               <button className="xl-entry__iconbtn" onClick={() => startEditTopicTags(e)} type="button" title="编辑标签">
                 <TagIcon size={11} />
               </button>

@@ -7,6 +7,7 @@
 - **Next.js 16**(App Router)+ React 19
 - **Firebase**(Google 登录 + Firestore 实时数据库 + Storage 图片存储)
 - **xAI Grok API**(日记自动打标签:推断技能 + XP)
+- **Notion API**(标记 #idea 的日记条目自动同步到 Notion 的 Idea Vault 数据库)
 - **d3-force**(关系图的力导向布局与拖拽)
 - **recharts**(XP 曲线图 / 雷达图)
 - **lucide-react**(图标)
@@ -27,7 +28,12 @@
 
 3. 在 [x.ai](https://x.ai/) 申请一个 Grok API key(用于日记自动打标签)。
 
-4. 复制 `.env.local.example` 为 `.env.local`,填入配置:
+4. (可选)如果要用「日记打 #idea 标签自动同步到 Notion Idea Vault」功能:
+   - 去 [notion.so/my-integrations](https://www.notion.so/my-integrations) 建一个 internal integration,复制它的 secret(以 `ntn_` 或 `secret_` 开头)。
+   - 打开 Notion 里的 Idea Vault 数据库,右上角 `···` → **Connections**,把刚建的 integration 加进去(不加的话 API 调用会报权限错误)。
+   - Idea Vault 的 data source ID 就是 `0becc330-4e93-4c07-9bfe-880c15d4de6b`(已经在共享给 Claude 的 workspace 里确认过)。
+
+5. 复制 `.env.local.example` 为 `.env.local`,填入配置:
 
    ```bash
    cp .env.local.example .env.local
@@ -43,11 +49,15 @@
    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
    NEXT_PUBLIC_FIREBASE_APP_ID=...
    XAI_API_KEY=xai-...
+   NOTION_API_KEY=ntn_...
+   NOTION_IDEA_VAULT_DATA_SOURCE_ID=0becc330-4e93-4c07-9bfe-880c15d4de6b
    ```
 
-5. 把 `firestore.rules` 的内容贴到 Firebase Console 的 **Firestore Database → 规则**,把 `storage.rules` 的内容贴到 **Storage → 规则**,分别发布(确保每个用户只能读写自己 uid 底下的数据)。
+   Notion 这两项留空也没关系,只是 #idea 标签的日记不会同步过去,其它功能不受影响。
 
-6. 启动开发服务器:
+6. 把 `firestore.rules` 的内容贴到 Firebase Console 的 **Firestore Database → 规则**,把 `storage.rules` 的内容贴到 **Storage → 规则**,分别发布(确保每个用户只能读写自己 uid 底下的数据)。
+
+7. 启动开发服务器:
 
    ```bash
    npm run dev
@@ -59,7 +69,7 @@
 
 1. 把这个项目推上 GitHub(见下方"推上 GitHub"步骤)。
 2. 打开 [vercel.com](https://vercel.com),用 GitHub 账号登录,点 **New Project**,选择这个仓库,Vercel 会自动识别 Next.js 项目。
-3. 在 Vercel 的 **Environment Variables** 里,把 `.env.local` 里的 6 个 `NEXT_PUBLIC_FIREBASE_*` 变量和 `XAI_API_KEY` 原样加进去。
+3. 在 Vercel 的 **Environment Variables** 里,把 `.env.local` 里的 6 个 `NEXT_PUBLIC_FIREBASE_*` 变量、`XAI_API_KEY`,以及(如果用了 Notion 同步)`NOTION_API_KEY` 和 `NOTION_IDEA_VAULT_DATA_SOURCE_ID` 原样加进去。
 4. 点 **Deploy**,几分钟后会拿到一个 `xxx.vercel.app` 的网址。
 5. 回到 Firebase Console → Authentication → Settings → **Authorized domains**,把这个 Vercel 网址加进去(否则 Google 登录会报错)。
 
@@ -83,6 +93,7 @@ app/
   page.js                根路径重定向到 /todo
   globals.css            暗金账本主题的全局样式
   api/tag-entry/route.js 日记自动打标签(调用 Grok API)
+  api/sync-idea/route.js 把打了 #idea 标签的日记同步到 Notion Idea Vault
   todo/page.js            待办(项目分组)
   diary/page.js           日记(AI 自动打标签)
   skills/page.js          技能成长(雷达图 + 技能列表)
@@ -114,7 +125,20 @@ lib/
 - `users/{uid}/merits/{meritId}` — `{ type: "merit" | "demerit", text, createdAt }`
 - `users/{uid}/projects/{projectId}` — `{ name, color?, createdAt, order }`
 - `users/{uid}/todos/{todoId}` — `{ projectId, text, done, createdAt, dueDate? }`
-- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, tags: [], skill, skillId, xpDelta, aiTagged, confidence, createdAt }`
+- `users/{uid}/diaryEntries/{entryId}` — `{ text, photoUrl?, tags: [], skill, skillId, xpDelta, aiTagged, confidence, createdAt, notionPageId? }`
+
+## Notion 同步(Idea Vault)
+
+日记条目打上 `idea` 标签(在标签框里输入 `：idea`)后,会自动在 Notion 的 **Idea Vault** 数据库里创建一条记录:
+
+- `Name` = 日记开头前 80 字
+- `Notes` = 完整日记正文
+- `Status` = `Inbox`(走 Idea Vault 原本的 Inbox → Reviewed → Organized 流程)
+- `Skill` = 这篇日记被打上的技能(新加的字段)
+- `XPLog ID` = 日记的 Firestore 文档 ID(新加的字段,防止重复同步)
+- `Screenshot` = 日记照片(如果有)
+
+只在标签第一次变成包含 `idea` 时同步一次(记录在 `diaryEntries.notionPageId` 上),之后编辑日记正文或技能不会再更新 Notion 那边的记录。没配置 `NOTION_API_KEY` / `NOTION_IDEA_VAULT_DATA_SOURCE_ID` 的话,打 `idea` 标签就只是本地标签,不会报错也不会同步。
 
 ## 关于关系图
 
