@@ -5,6 +5,7 @@ import { useCollection } from "@/lib/useCollection";
 import { ConfirmDialog } from "@/components/ui";
 import TodoBoard from "@/components/TodoBoard";
 import ProjectCards from "@/components/ProjectCards";
+import AllTasks from "@/components/AllTasks";
 
 const COLOR_PRESETS = ["#C9A24B", "#5C8A72", "#A23B3B", "#7A8AC9", "#92897A", "#B07AA1", "#D08C5A"];
 
@@ -15,6 +16,7 @@ export default function TodoPage() {
   const { data: allSections, add: addSection, update: updateSection, remove: removeSection } = useCollection("sections");
 
   const [activeProjectId, setActiveProjectId] = useState("");
+  const [showAll, setShowAll] = useState(false);
   const [showNewProject, setShowNewProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [newProjectColor, setNewProjectColor] = useState(COLOR_PRESETS[0]);
@@ -119,7 +121,9 @@ export default function TodoPage() {
         projects={projects}
         todos={todos}
         activeId={activeProjectId}
-        onSelect={(id) => { setActiveProjectId(id); setEditingProject(false); }}
+        allActive={showAll}
+        onSelectAll={() => { setShowAll(true); setEditingProject(false); }}
+        onSelect={(id) => { setActiveProjectId(id); setShowAll(false); setEditingProject(false); }}
         onReorder={(ids) => {
           ids.forEach((id, i) => {
             const order = ids.length - 1 - i;
@@ -156,7 +160,22 @@ export default function TodoPage() {
         </div>
       )}
 
-      {activeProject && (
+      {showAll && (
+        <>
+          <div className="xl-project-head"><div className="xl-title">全部待办</div></div>
+          <div className="xl-subtitle" style={{ marginBottom: 14 }}>
+            所有项目里还没完成的任务 · 点项目名可打开它的看板
+          </div>
+          <AllTasks
+            projects={projects}
+            todos={todos}
+            onToggle={updateTodo}
+            onOpenProject={(id) => { setActiveProjectId(id); setShowAll(false); }}
+          />
+        </>
+      )}
+
+      {!showAll && activeProject && (
         <>
           <div className="xl-project-head">
             <div className="xl-title" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
@@ -219,7 +238,7 @@ export default function TodoPage() {
         </>
       )}
 
-      {!activeProject && projects.length === 0 && (
+      {!showAll && !activeProject && projects.length === 0 && (
         <div className="xl-panel">还没有项目。点上面「+ 新建项目」创建第一个吧。</div>
       )}
     </>

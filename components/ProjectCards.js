@@ -33,7 +33,7 @@ function ProjectCard({ project, todos, active, onSelect }) {
 
 // `projects` arrives in display order (first = leftmost). Dragging rewrites `order`
 // so that display order stays "highest order first", as the page already sorts.
-export default function ProjectCards({ projects, todos, activeId, onSelect, onReorder, onNew }) {
+export default function ProjectCards({ projects, todos, activeId, allActive, onSelectAll, onSelect, onReorder, onNew }) {
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 6 } })
@@ -50,8 +50,17 @@ export default function ProjectCards({ projects, todos, activeId, onSelect, onRe
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <SortableContext items={projects.map((p) => p.id)} strategy={rectSortingStrategy}>
         <div className="xl-projects">
+          <button
+            type="button"
+            className={`xl-projcard ${allActive ? "xl-projcard--active" : ""}`}
+            style={{ "--proj-color": "var(--gold, #C9A24B)" }}
+            onClick={onSelectAll}
+          >
+            <span className="xl-projcard__name">全部待办</span>
+            <span className="xl-projcard__meta">{todos.filter((t) => !t.done).length} 项未完成 · 来自 {projects.length} 个项目</span>
+          </button>
           {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} todos={todos} active={activeId === p.id} onSelect={onSelect} />
+            <ProjectCard key={p.id} project={p} todos={todos} active={!allActive && activeId === p.id} onSelect={onSelect} />
           ))}
           <button className="xl-projcard xl-projcard--add" onClick={onNew} type="button">
             <Plus size={14} /> 新建项目
