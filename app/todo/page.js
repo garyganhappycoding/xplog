@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
-import { Pill, ConfirmDialog } from "@/components/ui";
+import { ConfirmDialog } from "@/components/ui";
 import TodoBoard from "@/components/TodoBoard";
 
 const COLOR_PRESETS = ["#C9A24B", "#5C8A72", "#A23B3B", "#7A8AC9", "#92897A", "#B07AA1", "#D08C5A"];
@@ -113,15 +113,24 @@ export default function TodoPage() {
 
       <div className="xl-header"><div className="xl-title">待办</div></div>
 
-      <div className="xl-pillrow" style={{ marginBottom: 16 }}>
-        {projects.map((p) => (
-          <Pill key={p.id} active={activeProjectId === p.id} onClick={() => { setActiveProjectId(p.id); setEditingProject(false); }}>
-            <span className="xl-project-dot" style={{ background: p.color || "var(--muted)" }} />
-            {p.name}
-          </Pill>
-        ))}
-        <button className="xl-pill xl-pill--dashed" onClick={() => setShowNewProject((v) => !v)} type="button">
-          <Plus size={12} /> 新建项目
+      <div className="xl-projects">
+        {projects.map((p) => {
+          const list = todos.filter((t) => t.projectId === p.id);
+          return (
+            <button
+              key={p.id}
+              type="button"
+              className={`xl-projcard ${activeProjectId === p.id ? "xl-projcard--active" : ""}`}
+              style={{ "--proj-color": p.color || "var(--muted)" }}
+              onClick={() => { setActiveProjectId(p.id); setEditingProject(false); }}
+            >
+              <span className="xl-projcard__name">{p.name}</span>
+              <span className="xl-projcard__meta">{list.filter((t) => !t.done).length} 项未完成 · 共 {list.length} 项</span>
+            </button>
+          );
+        })}
+        <button className="xl-projcard xl-projcard--add" onClick={() => setShowNewProject((v) => !v)} type="button">
+          <Plus size={14} /> 新建项目
         </button>
       </div>
 
@@ -202,12 +211,12 @@ export default function TodoPage() {
           <TodoBoard
             sections={projectSections}
             todos={projectTodos}
-            onAddTodo={(sectionId, text) =>
-              addTodo({ projectId: activeProjectId, sectionId, text, done: false, createdAt: Date.now(), doDate: null, dueDate: null })
-            }
+            onAddTodo={(sectionId, text) => {
+              const now = Date.now();
+              return addTodo({ projectId: activeProjectId, sectionId, text, done: false, createdAt: now, order: now, doDate: null, dueDate: null });
+            }}
             onUpdateTodo={updateTodo}
             onRemoveTodo={removeTodo}
-            onMoveTodo={(todoId, sectionId) => updateTodo(todoId, { sectionId })}
             onAddSection={(name) => addSection({ projectId: activeProjectId, name, order: projectSections.length, createdAt: Date.now() })}
             onRenameSection={(id, name) => updateSection(id, { name })}
             onRemoveSection={setDeleteSectionTarget}
