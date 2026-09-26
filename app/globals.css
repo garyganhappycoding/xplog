@@ -248,6 +248,22 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
   cursor: pointer; flex-shrink: 0; padding: 0;
 }
 .xl-todo-check--done { background: var(--gold-bright); border-color: var(--gold-bright); }
+.xl-project-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+.xl-project-dot--lg { width: 12px; height: 12px; margin-right: 0; flex-shrink: 0; }
+
+/* To-Do board (Todoist-style columns) */
+.xl-board { display: flex; gap: 12px; align-items: flex-start; overflow-x: auto; padding-bottom: 14px; margin-top: 16px; scrollbar-width: thin; scrollbar-color: rgba(201,162,75,0.35) transparent; }
+.xl-col {
+  flex: 0 0 272px; background: var(--panel); border: 1px solid var(--hairline); border-radius: 8px;
+  padding: 10px; min-height: 120px; transition: border-color 0.15s, background 0.15s;
+}
+.xl-col--over { border-color: var(--gold); background: rgba(201,162,75,0.06); }
+.xl-col--add { background: transparent; border-style: dashed; min-height: 0; }
+.xl-col__head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
+.xl-col__title { font-family: 'Noto Serif SC', serif; font-weight: 700; font-size: 14px; color: var(--gold-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xl-col__count { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--muted); margin-left: 6px; }
+.xl-card { padding: 10px 12px; margin-bottom: 8px; cursor: grab; }
+.xl-card--overlay { cursor: grabbing; box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
 
 /* Danger button variants */
 .xl-btn--danger { background: linear-gradient(180deg, #C77A70, var(--seal-red)); color: #FBEAE7; }
