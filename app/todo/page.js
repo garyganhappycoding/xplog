@@ -1,14 +1,16 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useCollection } from "@/lib/useCollection";
 import { ConfirmDialog } from "@/components/ui";
 import TodoBoard from "@/components/TodoBoard";
+import ProjectCards from "@/components/ProjectCards";
 
 const COLOR_PRESETS = ["#C9A24B", "#5C8A72", "#A23B3B", "#7A8AC9", "#92897A", "#B07AA1", "#D08C5A"];
 
 export default function TodoPage() {
-  const { data: projects, add: addProject, update: updateProject, remove: removeProject } = useCollection("projects", "order");
+  const { data: rawProjects, add: addProject, update: updateProject, remove: removeProject } = useCollection("projects");
+  const projects = useMemo(() => [...rawProjects].sort((a, b) => (b.order ?? 0) - (a.order ?? 0)), [rawProjects]);
   const { data: todos, add: addTodo, update: updateTodo, remove: removeTodo } = useCollection("todos");
   const { data: allSections, add: addSection, update: updateSection, remove: removeSection } = useCollection("sections");
 
@@ -113,26 +115,19 @@ export default function TodoPage() {
 
       <div className="xl-header"><div className="xl-title">待办</div></div>
 
-      <div className="xl-projects">
-        {projects.map((p) => {
-          const list = todos.filter((t) => t.projectId === p.id);
-          return (
-            <button
-              key={p.id}
-              type="button"
-              className={`xl-projcard ${activeProjectId === p.id ? "xl-projcard--active" : ""}`}
-              style={{ "--proj-color": p.color || "var(--muted)" }}
-              onClick={() => { setActiveProjectId(p.id); setEditingProject(false); }}
-            >
-              <span className="xl-projcard__name">{p.name}</span>
-              <span className="xl-projcard__meta">{list.filter((t) => !t.done).length} 项未完成 · 共 {list.length} 项</span>
-            </button>
-          );
-        })}
-        <button className="xl-projcard xl-projcard--add" onClick={() => setShowNewProject((v) => !v)} type="button">
-          <Plus size={14} /> 新建项目
-        </button>
-      </div>
+      <ProjectCards
+        projects={projects}
+        todos={todos}
+        activeId={activeProjectId}
+        onSelect={(id) => { setActiveProjectId(id); setEditingProject(false); }}
+        onReorder={(ids) => {
+          ids.forEach((id, i) => {
+            const order = ids.length - 1 - i;
+            if (projects.find((p) => p.id === id)?.order !== order) updateProject(id, { order });
+          });
+        }}
+        onNew={() => setShowNewProject((v) => !v)}
+      />
 
       {showNewProject && (
         <div className="xl-panel">
