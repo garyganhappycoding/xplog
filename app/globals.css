@@ -301,8 +301,9 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-cal-month__dow, .xl-cal-month__grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .xl-cal-month__dowcell { text-align: center; font-size: 11px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; padding-bottom: 6px; }
 .xl-cal-month__cell {
-  min-height: 76px; border: 1px solid var(--hairline); border-radius: 4px; padding: 5px 6px;
-  margin: -1px 0 0 -1px; cursor: pointer; display: flex; flex-direction: column; gap: 2px; transition: border-color 0.15s;
+  height: 108px; border: 1px solid var(--hairline); border-radius: 4px; padding: 5px 6px;
+  margin: -1px 0 0 -1px; cursor: pointer; display: flex; flex-direction: column; gap: 2px;
+  overflow: hidden; transition: border-color 0.15s;
 }
 .xl-cal-month__cell:hover { border-color: var(--gold); z-index: 1; }
 .xl-cal-month__cell--dim { opacity: 0.35; }
@@ -347,6 +348,6 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-cal-event__time { font-size: 9.5px; color: var(--muted); font-family: 'IBM Plex Mono', monospace; }
 
 @media (max-width: 720px) {
-  .xl-cal-month__cell { min-height: 58px; }
+  .xl-cal-month__cell { height: 68px; }
   .xl-cal-chip { font-size: 9.5px; }
 }
