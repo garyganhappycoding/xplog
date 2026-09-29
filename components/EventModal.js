@@ -4,6 +4,7 @@ import { X as XIcon, Trash2 } from "lucide-react";
 import { toKey } from "@/lib/date";
 
 const COLOR_PRESETS = ["#C9A24B", "#5C8A72", "#A23B3B", "#7A8AC9", "#92897A", "#B07AA1", "#D08C5A"];
+const REPEAT_OPTIONS = [["none", "不重复"], ["daily", "每天"], ["weekly", "每周"], ["monthly", "每月"]];
 
 // Add/edit panel for a scheduled event. `initial` carries a prefilled date/time for quick-add,
 // or the full event doc (with `id`) when editing.
@@ -15,6 +16,8 @@ export default function EventModal({ initial, onSave, onDelete, onClose }) {
   const [endTime, setEndTime] = useState(initial?.endTime || "10:00");
   const [notes, setNotes] = useState(initial?.notes || "");
   const [color, setColor] = useState(initial?.color || COLOR_PRESETS[0]);
+  const [repeat, setRepeat] = useState(initial?.repeat || "none");
+  const [repeatUntil, setRepeatUntil] = useState(initial?.repeatUntil || "");
 
   const save = () => {
     if (!title.trim()) return;
@@ -25,6 +28,8 @@ export default function EventModal({ initial, onSave, onDelete, onClose }) {
       endTime: allDay ? null : endTime,
       notes: notes.trim(),
       color,
+      repeat,
+      repeatUntil: repeat === "none" ? null : (repeatUntil || null),
     });
   };
 
@@ -63,6 +68,28 @@ export default function EventModal({ initial, onSave, onDelete, onClose }) {
             </div>
           </div>
         )}
+
+        <div className="xl-field">
+          <label className="xl-label">重复</label>
+          <div className="xl-pillrow">
+            {REPEAT_OPTIONS.map(([v, cn]) => (
+              <button
+                key={v}
+                type="button"
+                className={`xl-pill xl-pill--sm ${repeat === v ? "xl-pill--active" : ""}`}
+                onClick={() => setRepeat(v)}
+              >
+                {cn}
+              </button>
+            ))}
+          </div>
+          {repeat !== "none" && (
+            <div style={{ marginTop: 10 }}>
+              <label className="xl-label">结束重复(可选,留空则一直重复)</label>
+              <input className="xl-input" type="date" value={repeatUntil} min={date} onChange={(e) => setRepeatUntil(e.target.value)} />
+            </div>
+          )}
+        </div>
 
         <div className="xl-field">
           <label className="xl-label">备注(可选)</label>

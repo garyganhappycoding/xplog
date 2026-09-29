@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useCollection } from "@/lib/useCollection";
 import Calendar from "@/components/Calendar";
 import EventModal from "@/components/EventModal";
+import { toKey, fromKey, monthGrid, weekDays, occurrenceDates } from "@/lib/date";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -18,8 +19,16 @@ export default function TimetablePage() {
 
   const projectById = useMemo(() => Object.fromEntries(projects.map((p) => [p.id, p])), [projects]);
 
-  // Merge todos (plan/due dates, no time-of-day) and events (may have a time) into one
-  // normalized list the Calendar component can bucket by date.
+  // The window of dates actually visible for the current view - recurring events only
+  // need to be expanded into occurrences within this window, not for all time.
+  const [rangeStart, rangeEnd] = useMemo(() => {
+    if (view === "month") { const g = monthGrid(date); return [g[0], g[41]]; }
+    if (view === "week") { const w = weekDays(date); return [w[0], w[6]]; }
+    return [date, date];
+  }, [view, date]);
+
+  // Merge todos (plan/due dates, no time-of-day) and events (may have a time, may repeat)
+  // into one normalized list the Calendar component can bucket by date.
   const items = useMemo(() => {
     const out = [];
     for (const t of todos) {
@@ -33,13 +42,18 @@ export default function TimetablePage() {
       }
     }
     for (const e of events) {
-      out.push({
-        id: e.id, kind: "event", date: e.date, title: e.title, color: e.color || "var(--gold)",
-        allDay: !e.startTime, startTime: e.startTime, endTime: e.endTime, raw: e,
-      });
+      const start = fromKey(e.date);
+      const until = e.repeatUntil ? fromKey(e.repeatUntil) : null;
+      const occurrences = occurrenceDates(start, e.repeat, until, rangeStart, rangeEnd);
+      for (const occ of occurrences) {
+        out.push({
+          id: `${e.id}::${toKey(occ)}`, kind: "event", date: toKey(occ), title: e.title, color: e.color || "var(--gold)",
+          allDay: !e.startTime, startTime: e.startTime, endTime: e.endTime, repeat: e.repeat, raw: e,
+        });
+      }
     }
     return out;
-  }, [todos, events, projectById]);
+  }, [todos, events, projectById, rangeStart, rangeEnd]);
 
   const openAdd = (dateKey, hour) => {
     setModalInitial({

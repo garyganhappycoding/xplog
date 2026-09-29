@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
-import { ChevronLeft, ChevronRight, Check, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Check, Plus, Repeat } from "lucide-react";
 import {
   toKey, isSameDay, addDays, addMonths, addWeeks, monthGrid, weekDays,
   minutesOf, WEEKDAY_CN, monthLabel, dayLabel, weekRangeLabel,
@@ -100,6 +100,7 @@ function MonthGrid({ date, today, byDate, onOpenDay, onEditEvent }) {
                   onClick={(e) => { e.stopPropagation(); if (it.kind === "event") onEditEvent(it.raw); else onOpenDay(d); }}
                   title={it.title}
                 >
+                  {it.repeat && it.repeat !== "none" && <Repeat size={9} style={{ marginRight: 3, verticalAlign: -1 }} />}
                   {it.title}
                 </div>
               ))}
@@ -168,6 +169,7 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
                   style={{ textDecoration: it.done ? "line-through" : "none", opacity: it.done ? 0.5 : 1, cursor: it.kind === "event" ? "pointer" : "default", overflowWrap: "anywhere" }}
                   onClick={() => it.kind === "event" && onEditEvent(it.raw)}
                 >
+                  {it.repeat && it.repeat !== "none" && <Repeat size={9} style={{ marginRight: 3, verticalAlign: -1 }} />}
                   {it.title}
                 </span>
               </div>
@@ -199,7 +201,10 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
                     onClick={(e) => { e.stopPropagation(); onEditEvent(it.raw); }}
                     title={it.title}
                   >
-                    <div className="xl-cal-event__title">{it.title}</div>
+                    <div className="xl-cal-event__title">
+                      {it.repeat && it.repeat !== "none" && <Repeat size={9} style={{ marginRight: 3, verticalAlign: -1 }} />}
+                      {it.title}
+                    </div>
                     <div className="xl-cal-event__time">{it.startTime}{it.endTime ? `–${it.endTime}` : ""}</div>
                   </div>
                 );
