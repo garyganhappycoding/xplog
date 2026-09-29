@@ -1,11 +1,12 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ListTodo, NotebookPen, Sparkles, Share2 } from "lucide-react";
+import { ListTodo, NotebookPen, Sparkles, Share2, CalendarDays } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
   { href: "/todo", cn: "待办", Icon: ListTodo },
+  { href: "/timetable", cn: "日程", Icon: CalendarDays },
   { href: "/diary", cn: "日记", Icon: NotebookPen },
   { href: "/skills", cn: "技能成长", Icon: Sparkles },
   { href: "/graph", cn: "关系图", Icon: Share2 },
