@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { useCollection } from "@/lib/useCollection";
 import Calendar from "@/components/Calendar";
 import EventModal from "@/components/EventModal";
-import { toKey, fromKey, monthGrid, weekDays, occurrenceDates } from "@/lib/date";
+import { toKey, fromKey, monthGrid, weekDays, occurrenceDates, startOfDay } from "@/lib/date";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
@@ -13,7 +13,11 @@ export default function TimetablePage() {
   const { data: events, add: addEvent, update: updateEvent, remove: removeEvent } = useCollection("events");
 
   const [view, setView] = useState("month");
-  const [date, setDate] = useState(new Date());
+  // Keep this normalized to local midnight - `new Date()` carries the current wall-clock
+  // time, which otherwise makes "today" fail >= / <= range checks against midnight-based
+  // occurrence dates (recurring events could vanish from the day view for today).
+  const [date, _setDate] = useState(() => startOfDay(new Date()));
+  const setDate = (d) => _setDate(startOfDay(d));
   const [modalInitial, setModalInitial] = useState(null); // null = closed
   const [modalOpen, setModalOpen] = useState(false);
 
