@@ -9,6 +9,8 @@ import {
 const HOUR_H = 48; // px per hour row
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const VIEWS = [["month", "月"], ["week", "周"], ["day", "日"]];
+// Multi-day banners are stored as daily repeats but shouldn't be flagged as recurring.
+const isRecurring = (it) => it.repeat && it.repeat !== "none" && !it.raw?.multiDay;
 
 // `items` is a flat list of normalized calendar entries built by the page:
 //   { id, kind: "todo"|"event", date: "YYYY-MM-DD", title, color, allDay, startTime, endTime, done?, raw }
@@ -100,7 +102,7 @@ function MonthGrid({ date, today, byDate, onOpenDay, onEditEvent }) {
                   onClick={(e) => { e.stopPropagation(); if (it.kind === "event") onEditEvent(it.raw); else onOpenDay(d); }}
                   title={it.title}
                 >
-                  {it.repeat && it.repeat !== "none" && <Repeat size={9} style={{ marginRight: 3, verticalAlign: -1 }} />}
+                  {isRecurring(it) && <Repeat size={9} style={{ display: "inline-block", marginRight: 3, verticalAlign: -1 }} />}
                   {it.title}
                 </div>
               ))}
@@ -169,7 +171,7 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
                   style={{ textDecoration: it.done ? "line-through" : "none", opacity: it.done ? 0.5 : 1, cursor: it.kind === "event" ? "pointer" : "default", overflowWrap: "anywhere" }}
                   onClick={() => it.kind === "event" && onEditEvent(it.raw)}
                 >
-                  {it.repeat && it.repeat !== "none" && <Repeat size={9} style={{ marginRight: 3, verticalAlign: -1 }} />}
+                  {isRecurring(it) && <Repeat size={9} style={{ display: "inline-block", marginRight: 3, verticalAlign: -1 }} />}
                   {it.title}
                 </span>
               </div>
@@ -202,7 +204,7 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
                     title={it.title}
                   >
                     <div className="xl-cal-event__title">
-                      {it.repeat && it.repeat !== "none" && <Repeat size={9} style={{ marginRight: 3, verticalAlign: -1 }} />}
+                      {isRecurring(it) && <Repeat size={9} style={{ display: "inline-block", marginRight: 3, verticalAlign: -1 }} />}
                       {it.title}
                     </div>
                     <div className="xl-cal-event__time">{it.startTime}{it.endTime ? `–${it.endTime}` : ""}</div>

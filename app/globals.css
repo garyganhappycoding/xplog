@@ -314,7 +314,7 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-cal-chip {
   font-size: 10.5px; padding: 2px 6px; border-radius: 3px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap; background: color-mix(in srgb, var(--chip-color) 22%, transparent);
-  border-left: 2px solid var(--chip-color); cursor: pointer;
+  border-left: 2px solid var(--chip-color); cursor: pointer; flex-shrink: 0;
 }
 .xl-cal-chip--done { opacity: 0.5; text-decoration: line-through; }
 .xl-cal-chip--block { display: flex; align-items: center; gap: 6px; white-space: normal; margin-bottom: 4px; padding: 4px 8px; }
