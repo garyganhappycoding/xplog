@@ -4,12 +4,13 @@ import { useCollection } from "@/lib/useCollection";
 import Calendar from "@/components/Calendar";
 import EventModal from "@/components/EventModal";
 import { toKey, fromKey, monthGrid, weekDays, occurrenceDates, startOfDay } from "@/lib/date";
+import { INBOX_NAME, INBOX_COLOR, findInboxProject, prepTodoText } from "@/lib/inbox";
 
 const pad2 = (n) => String(n).padStart(2, "0");
 
 export default function TimetablePage() {
-  const { data: projects } = useCollection("projects");
-  const { data: todos, update: updateTodo } = useCollection("todos");
+  const { data: projects, add: addProject } = useCollection("projects");
+  const { data: todos, add: addTodo, update: updateTodo, remove: removeTodo } = useCollection("todos");
   const { data: events, add: addEvent, update: updateEvent, remove: removeEvent } = useCollection("events");
 
   const [view, setView] = useState("month");
@@ -52,7 +53,7 @@ export default function TimetablePage() {
       for (const occ of occurrences) {
         out.push({
           id: `${e.id}::${toKey(occ)}`, kind: "event", date: toKey(occ), title: e.title, color: e.color || "var(--gold)",
-          allDay: !e.startTime, startTime: e.startTime, endTime: e.endTime, repeat: e.repeat, raw: e,
+          allDay: !e.startTime, startTime: e.startTime, endTime: e.endTime, repeat: e.repeat, location: e.location, raw: e,
         });
       }
     }
@@ -69,12 +70,43 @@ export default function TimetablePage() {
   const openEdit = (event) => { setModalInitial(event); setModalOpen(true); };
   const closeModal = () => { setModalOpen(false); setModalInitial(null); };
 
+  // "What to prepare" becomes a real to-do (in the 收件箱 project) linked to the event, so it
+  // also shows up on the To-Do page and on the calendar on its prepare date.
+  const ensureInboxId = async () => {
+    const found = findInboxProject(projects);
+    if (found) return found.id;
+    const ref = await addProject({ name: INBOX_NAME, color: INBOX_COLOR, createdAt: Date.now(), order: projects.length });
+    return ref.id;
+  };
+
   const saveEvent = async (data) => {
-    if (modalInitial?.id) await updateEvent(modalInitial.id, data);
-    else await addEvent({ ...data, createdAt: Date.now() });
+    let prepTodoId = modalInitial?.prepTodoId || null;
+    const linked = prepTodoId && todos.some((t) => t.id === prepTodoId);
+    if (data.prepNote) {
+      const patch = { text: prepTodoText(data.prepNote, data.title), doDate: data.prepDate || data.date };
+      if (linked) {
+        await updateTodo(prepTodoId, patch);
+      } else {
+        const now = Date.now();
+        const ref = await addTodo({ projectId: await ensureInboxId(), sectionId: null, ...patch, dueDate: null, done: false, createdAt: now, order: now });
+        prepTodoId = ref.id;
+      }
+    } else if (linked) {
+      await removeTodo(prepTodoId);
+      prepTodoId = null;
+    }
+    const payload = { ...data, prepTodoId };
+    if (modalInitial?.id) await updateEvent(modalInitial.id, payload);
+    else await addEvent({ ...payload, createdAt: Date.now() });
     closeModal();
   };
-  const deleteEvent = async (id) => { await removeEvent(id); closeModal(); };
+
+  const deleteEvent = async (id) => {
+    const ev = events.find((e) => e.id === id);
+    if (ev?.prepTodoId && todos.some((t) => t.id === ev.prepTodoId)) await removeTodo(ev.prepTodoId);
+    await removeEvent(id);
+    closeModal();
+  };
 
   return (
     <>

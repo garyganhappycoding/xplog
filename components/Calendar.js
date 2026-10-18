@@ -100,7 +100,7 @@ function MonthGrid({ date, today, byDate, onOpenDay, onEditEvent }) {
                   className={`xl-cal-chip ${it.done ? "xl-cal-chip--done" : ""}`}
                   style={{ "--chip-color": it.color }}
                   onClick={(e) => { e.stopPropagation(); if (it.kind === "event") onEditEvent(it.raw); else onOpenDay(d); }}
-                  title={it.title}
+                  title={it.location ? `${it.title} @ ${it.location}` : it.title}
                 >
                   {isRecurring(it) && <Repeat size={9} style={{ display: "inline-block", marginRight: 3, verticalAlign: -1 }} />}
                   {it.title}
@@ -179,7 +179,7 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
                   onClick={() => it.kind === "event" && onEditEvent(it.raw)}
                 >
                   {isRecurring(it) && <Repeat size={9} style={{ display: "inline-block", marginRight: 3, verticalAlign: -1 }} />}
-                  {it.title}
+                  {it.title}{it.location ? <span style={{ opacity: 0.6 }}> · {it.location}</span> : null}
                 </span>
               </div>
             ))}
@@ -214,7 +214,7 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
                       {isRecurring(it) && <Repeat size={9} style={{ display: "inline-block", marginRight: 3, verticalAlign: -1 }} />}
                       {it.title}
                     </div>
-                    <div className="xl-cal-event__time">{it.startTime}{it.endTime ? `–${it.endTime}` : ""}</div>
+                    <div className="xl-cal-event__time">{it.startTime}{it.endTime ? `–${it.endTime}` : ""}{it.location ? ` · ${it.location}` : ""}</div>
                   </div>
                 );
               })}

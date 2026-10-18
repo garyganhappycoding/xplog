@@ -6,14 +6,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "telegram:webhook": "node --env-file=.env.local scripts/telegram-webhook.mjs",
+    "test:telegram": "node scripts/test-telegram.mjs",
+    "notion:levels": "node --env-file=.env.local scripts/setup-notion-levels.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
-    "d3": "^7.9.0",
     "firebase": "^12.15.0",
+    "firebase-admin": "^14.5.0",
     "lucide-react": "^1.23.0",
     "next": "16.2.10",
     "openai": "^4.104.0",

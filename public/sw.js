@@ -53,3 +53,17 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// Tapping the time-tracker notification (or its "结束计时" button) opens the tracker page.
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.action === "stop" ? "/track?action=stop" : event.notification.data?.url || "/track";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      for (const client of list) {
+        if ("navigate" in client && "focus" in client) return client.navigate(url).then((c) => (c || client).focus());
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});

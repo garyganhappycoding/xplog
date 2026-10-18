@@ -16,6 +16,9 @@ export default function EventModal({ initial, onSave, onDelete, onClose }) {
   const [endTime, setEndTime] = useState(initial?.endTime || "10:00");
   const [notes, setNotes] = useState(initial?.notes || "");
   const [color, setColor] = useState(initial?.color || COLOR_PRESETS[0]);
+  const [location, setLocation] = useState(initial?.location || "");
+  const [prepNote, setPrepNote] = useState(initial?.prepNote || "");
+  const [prepDate, setPrepDate] = useState(initial?.prepDate || "");
   const [repeat, setRepeat] = useState(initial?.repeat || "none");
   const [repeatUntil, setRepeatUntil] = useState(initial?.repeatUntil || "");
 
@@ -27,6 +30,9 @@ export default function EventModal({ initial, onSave, onDelete, onClose }) {
       startTime: allDay ? null : startTime,
       endTime: allDay ? null : endTime,
       notes: notes.trim(),
+      location: location.trim(),
+      prepNote: prepNote.trim(),
+      prepDate: prepNote.trim() ? prepDate || date : null,
       color,
       repeat,
       repeatUntil: repeat === "none" ? null : (repeatUntil || null),
@@ -87,6 +93,22 @@ export default function EventModal({ initial, onSave, onDelete, onClose }) {
             <div style={{ marginTop: 10 }}>
               <label className="xl-label">结束重复(可选,留空则一直重复)</label>
               <input className="xl-input" type="date" value={repeatUntil} min={date} onChange={(e) => setRepeatUntil(e.target.value)} />
+            </div>
+          )}
+        </div>
+
+        <div className="xl-field">
+          <label className="xl-label">地点(可选)</label>
+          <input className="xl-input" value={location} onChange={(e) => setLocation(e.target.value)} placeholder="在哪里?" />
+        </div>
+
+        <div className="xl-field">
+          <label className="xl-label">需要提前准备什么(可选,会自动加入待办)</label>
+          <input className="xl-input" value={prepNote} onChange={(e) => setPrepNote(e.target.value)} placeholder="例如:带保险卡、准备简报" />
+          {prepNote.trim() && (
+            <div style={{ marginTop: 10 }}>
+              <label className="xl-label">什么时候准备(默认当天)</label>
+              <input className="xl-input" type="date" value={prepDate || date} onChange={(e) => setPrepDate(e.target.value)} />
             </div>
           )}
         </div>
