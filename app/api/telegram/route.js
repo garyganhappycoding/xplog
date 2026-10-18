@@ -1,4 +1,4 @@
-import { createStore, resolveOwnerUid } from "@/lib/server/firebaseAdmin";
+import { createStore, resolveOwnerUid, adminSdkStatus } from "@/lib/server/firebaseAdmin";
 import { handleMessage } from "@/lib/telegram/handlers";
 import { defaultLlm } from "@/lib/telegram/llm";
 import { defaultMemory } from "@/lib/telegram/memoryService";
@@ -65,7 +65,7 @@ export async function POST(req) {
 
   let reply;
   try {
-    const store = createStore(await resolveOwnerUid());
+    const store = await createStore(await resolveOwnerUid());
     if (!(await store.claimUpdate(update.update_id))) return Response.json({ ok: true, duplicate: true });
     const photo = msg.photo?.length ? await downloadPhoto(msg.photo) : null;
     reply = await handleMessage({ store, llm: defaultLlm, memory: defaultMemory, text, photo, ref: `tg:${update.update_id}` });
@@ -78,9 +78,10 @@ export async function POST(req) {
 }
 
 // A browser visit shows whether the endpoint is deployed (it never reveals secrets).
-export function GET() {
+export async function GET() {
   return Response.json({
     ok: true,
+    firebaseAdminSdk: await adminSdkStatus(),
     configured: {
       botToken: !!process.env.TELEGRAM_BOT_TOKEN,
       webhookSecret: !!process.env.TELEGRAM_WEBHOOK_SECRET,
