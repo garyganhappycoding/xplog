@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ListTodo, NotebookPen, Sparkles, Share2, CalendarDays } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import InstallButton from "@/components/InstallButton";
 
 const NAV_ITEMS = [
   { href: "/todo", cn: "待办", Icon: ListTodo },
@@ -32,7 +33,10 @@ export default function AppShell({ children }) {
     <div className="xl-shell">
       <div className="xl-topbar">
         <div className="xl-topbar__brand">XPLog<span>累经簿</span></div>
-        <button className="xl-topbar__logout" onClick={logout} type="button">登出</button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <InstallButton />
+          <button className="xl-topbar__logout" onClick={logout} type="button">登出</button>
+        </div>
       </div>
 
       <main className="xl-main">{children}</main>

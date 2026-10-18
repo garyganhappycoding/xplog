@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, signInWithPopup, signOut } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 
 const AuthContext = createContext({ user: null, loading: true, login: () => {}, logout: () => {} });
@@ -17,7 +17,17 @@ export function AuthProvider({ children }) {
     return () => unsub();
   }, []);
 
-  const login = () => signInWithPopup(auth, googleProvider);
+  // Popups are unreliable in installed/mobile browsers; fall back to a full-page redirect.
+  const login = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      if (e.code === "auth/popup-blocked" || e.code === "auth/operation-not-supported-in-this-environment") {
+        return signInWithRedirect(auth, googleProvider);
+      }
+      throw e;
+    }
+  };
   const logout = () => signOut(auth);
 
   return (

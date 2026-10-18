@@ -319,7 +319,7 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 .xl-cal-chip--done { opacity: 0.5; text-decoration: line-through; }
 .xl-cal-chip--block { display: flex; align-items: center; gap: 6px; white-space: normal; margin-bottom: 4px; padding: 4px 8px; }
 
-.xl-cal-timegrid { border: 1px solid var(--hairline); border-radius: 6px; overflow: hidden; }
+.xl-cal-timegrid { border: 1px solid var(--hairline); border-radius: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scrollbar-color: rgba(201,162,75,0.35) transparent; }
 .xl-cal-week__header, .xl-cal-allday { display: grid; border-bottom: 1px solid var(--hairline); }
 .xl-cal-week__header { background: var(--panel-2); }
 .xl-cal-week__day {
@@ -350,4 +350,28 @@ textarea.xl-input--plain { resize: vertical; line-height: 1.7; }
 @media (max-width: 720px) {
   .xl-cal-month__cell { height: 68px; }
   .xl-cal-chip { font-size: 9.5px; }
+}
+
+/* Phone / installed-app polish */
+html { -webkit-text-size-adjust: 100%; }
+button, a, .xl-pill { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+.xl-shell, .xl-login { min-height: 100dvh; }
+/* Installed with a translucent status bar: keep the top bar clear of the notch / clock */
+.xl-topbar { padding-top: calc(14px + env(safe-area-inset-top, 0px)); }
+@media (max-width: 720px) {
+  .xl-topbar { padding-left: 16px; padding-right: 16px; }
+  /* 16px stops iOS from zooming the page when a field is focused */
+  .xl-input, textarea.xl-input, .xl-input--plain { font-size: 16px; }
+}
+@media (max-width: 720px) {
+  /* Month cells are too small for text on a phone: show events as colour bars, tap a day for detail */
+  .xl-cal-month__cell .xl-cal-chip { height: 6px; padding: 0; font-size: 0; border-radius: 2px; border-left-width: 0; background: var(--chip-color); opacity: 0.85; }
+  .xl-cal-month__cell .xl-cal-chip.xl-cal-chip--done { opacity: 0.3; }
+  .xl-cal-month__cell .xl-cal-chip svg { display: none !important; }
+  .xl-cal-month__cell { padding: 4px; gap: 3px; }
+}
+@media (max-width: 720px) {
+  /* Two project cards per row so the board stays near the top */
+  .xl-projects { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .xl-projcard { padding: 10px 12px; }
 }

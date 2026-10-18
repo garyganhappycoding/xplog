@@ -118,8 +118,13 @@ function MonthGrid({ date, today, byDate, onOpenDay, onEditEvent }) {
 // Powers both week (N columns) and day (1 column) views: an all-day strip plus a scrollable hour grid.
 function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, onAddEvent, expanded }) {
   const scrollRef = useRef(null);
+  const wrapRef = useRef(null);
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = 7 * HOUR_H;
+    // On a narrow screen the week scrolls sideways: bring today's column into view.
+    const idx = days.findIndex((d) => isSameDay(d, today));
+    if (wrapRef.current && idx > 0) wrapRef.current.scrollLeft = Math.max(0, idx * 104 - 52);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const columns = days.map((d) => {
@@ -134,7 +139,9 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
   });
 
   return (
-    <div className="xl-cal-timegrid">
+    <div className="xl-cal-timegrid" ref={wrapRef}>
+     {/* Each day keeps a readable minimum width; on a phone the whole grid scrolls sideways. */}
+     <div style={{ minWidth: 56 + days.length * 104 }}>
       <div className="xl-cal-week__header" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
         <div />
         {columns.map((c) => (
@@ -215,6 +222,7 @@ function TimeGrid({ days, today, byDate, onOpenDay, onToggleTodo, onEditEvent, o
           ))}
         </div>
       </div>
+     </div>
     </div>
   );
 }
