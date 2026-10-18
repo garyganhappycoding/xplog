@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { parseCommand, extractTags } from "../lib/telegram/commands.js";
 import { parseTodosFallback, dateContext } from "../lib/telegram/llm.js";
 import { handleMessage } from "../lib/telegram/handlers.js";
-import { fallbackKeywords, ask } from "../lib/server/rag.js";
+import { fallbackKeywords, ask, formatAnswer } from "../lib/server/rag.js";
 
 // In-memory stand-in for the Firestore store.
 function memoryStore(seed = {}) {
@@ -34,7 +34,7 @@ const saved = [];
 const asked = [];
 const memory = {
   save: async (args) => { saved.push(args); return { page: { title: "鸡饭 RM8.50" }, tags: ["价格"], photoSaved: !!args.photo, photoError: null, vision: args.photo ? { text: "Chicken Rice RM 8.50" } : null }; },
-  ask: async (q) => { asked.push(q); return { answer: "鸡饭 RM8.50(10/18 记录)", sources: [{ title: "鸡饭 RM8.50", date: "2026-10-18" }], found: true }; },
+  ask: async (q) => { asked.push(q); return { answered: true, summary: "鸡饭 RM8.50(10/18 记录)", details: "10/18 在 Kedai Ali 记录:RM8.50", followUp: ["下次再确认一下价格有没有变"], sources: [{ title: "鸡饭 RM8.50", date: "2026-10-18" }] }; },
 };
 const run = (args) => handleMessage({ memory, ...args });
 
@@ -249,19 +249,58 @@ await test("AI unavailable or failing -> never claims an answer, shows the notes
   assert.equal(boom.answered, false);
 });
 
-await test("bot reply: references are labelled as such, real answers cite sources", async () => {
-  const mem = (res) => ({ ask: async () => res });
-  const refs = [{ title: "鸡饭 RM8.50", date: "2026-10-18", snippet: "鸡饭 RM8.50 @Kedai Ali #价格" }];
-  const noAns = await handleMessage({ store: null, llm, memory: mem({ answer: "I don't have the answer to that.", sources: refs, answered: false }), text: "ask: teh tarik price" });
-  assert.match(noAns, /^I don't have the answer to that\./);
-  assert.ok(noAns.includes("相关记录") && noAns.includes("供参考"), "labelled as references");
-  assert.match(noAns, /Kedai Ali/);
-  assert.ok(!/来源/.test(noAns));
-  const yes = await handleMessage({ store: null, llm, memory: mem({ answer: "RM8.50", sources: refs, answered: true }), text: "ask: 鸡饭多少钱" });
-  assert.match(yes, /来源/);
-  assert.ok(!/供参考/.test(yes));
-  const bare = await handleMessage({ store: null, llm, memory: mem({ answer: "I don't have the answer to that.", sources: [], answered: false }), text: "wifi password?" });
-  assert.equal(bare, "I don't have the answer to that.");
+await test("an answer has four parts: summary, details, sources, follow-up decisions", async () => {
+  const deps = {
+    retrieve: async () => ({ keywords: ["鸡饭"], items: related }),
+    available: () => true,
+    json: async () => ({
+      answerable: true,
+      summary: "鸡饭 RM8.50。",
+      details: "- 10/18 在 Kedai Ali 记录:RM8.50\n- 价格含饮料",
+      followUp: ["- 想不想比较别家的价格?", "下次再去时确认价格有没有变"],
+      used: [1],
+    }),
+  };
+  const r = await ask("鸡饭多少钱", deps);
+  assert.equal(r.answered, true);
+  assert.equal(r.summary, "鸡饭 RM8.50。");
+  assert.match(r.details, /Kedai Ali/);
+  assert.deepEqual(r.followUp, ["想不想比较别家的价格?", "下次再去时确认价格有没有变"], "bullets are cleaned");
+  assert.deepEqual(r.sources.map((x) => x.id), ["a"]);
+
+  const text = formatAnswer(r);
+  const order = ["1️⃣ 总结 Summary", "2️⃣ 详细 Details", "3️⃣ 来源 Sources", "4️⃣ 后续决策 Next steps"].map((h) => text.indexOf(h));
+  assert.ok(order.every((i) => i >= 0) && order.every((v, i) => i === 0 || v > order[i - 1]), "all four headings, in order");
+  assert.match(text, /鸡饭 RM8.50。/);
+  assert.match(text, /• 想不想比较别家的价格\?/);
+  assert.ok(!/仅供参考/.test(text), "a real answer cites sources, not references");
+});
+
+await test("no answer still uses the same four parts, with references and next steps", async () => {
+  const deps = {
+    retrieve: async () => ({ keywords: ["nasi"], items: related }),
+    available: () => true,
+    json: async () => ({ answerable: false, summary: "I don't have the answer to that.", details: "", followUp: [], used: [] }),
+  };
+  const r = await ask("How much is the teh tarik?", deps);
+  assert.equal(r.answered, false);
+  assert.equal(r.summary, "I don't have the answer to that.");
+  assert.ok(r.followUp.length >= 1 && /note:/.test(r.followUp.join(" ")), "suggests saving the answer");
+  const text = formatAnswer(r);
+  assert.match(text, /^1️⃣ 总结 Summary\nI don't have the answer to that\./);
+  assert.ok(text.includes("4️⃣ 后续决策 Next steps"));
+  assert.ok(text.includes("仅供参考") && text.includes("Kedai Ali"));
+  const none = formatAnswer(await ask("wifi password?", { retrieve: async () => ({ keywords: ["wifi"], items: [] }), available: () => true }));
+  assert.match(none, /3️⃣ 来源 Sources\n—/);
+  assert.match(none, /I don't have the answer/);
+});
+
+await test("the bot replies with the structured text", async () => {
+  const store = memoryStore();
+  const reply = await run({ store, llm, text: "ask: 鸡饭多少钱" });
+  for (const h of ["1️⃣ 总结 Summary", "2️⃣ 详细 Details", "3️⃣ 来源 Sources", "4️⃣ 后续决策 Next steps"]) assert.ok(reply.includes(h), h);
+  assert.match(reply, /RM8.50/);
+  assert.match(await run({ store, llm, text: "ask:" }), /ask: 鸡饭多少钱/, "empty question explains usage");
 });
 
 console.log(`\n${passed} checks passed`);

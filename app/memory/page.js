@@ -164,15 +164,32 @@ export default function MemoryPage() {
           </button>
         </div>
         {answer && (
-          <div style={{ marginTop: 14 }}>
-            <div className="xl-entry__text" style={{ whiteSpace: "pre-wrap", opacity: 1 }}>{answer.answer}</div>
-            {answer.sources?.length > 0 && (
-              <div className="xl-entry__meta" style={{ marginTop: 10 }}>
-                {answer.answered === false ? "相关记录(供参考):" : "来源:"}{answer.sources.map((s, i) => (
-                  <span key={s.id || i}>{i ? " · " : ""}{s.url ? <a href={s.url} target="_blank" rel="noreferrer" style={{ color: "var(--gold)" }}>{s.title}</a> : s.title}{s.date ? ` (${s.date})` : ""}</span>
-                ))}
+          <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+            {[
+              ["1  总结 Summary", <div key="s" className="xl-entry__text" style={{ opacity: 1, fontWeight: 600 }}>{answer.summary || answer.answer}</div>],
+              ["2  详细 Details", <div key="d" className="xl-entry__text" style={{ whiteSpace: "pre-wrap", opacity: 1 }}>{answer.details || "—"}</div>],
+              [`3  来源 Sources${answer.answered === false && answer.sources?.length ? "(相关记录,仅供参考)" : ""}`,
+                answer.sources?.length ? (
+                  <div key="src" className="xl-entry__text" style={{ opacity: 1 }}>
+                    {answer.sources.map((s, i) => (
+                      <div key={s.id || i}>
+                        {i + 1}. {s.url ? <a href={s.url} target="_blank" rel="noreferrer" style={{ color: "var(--gold)" }}>{s.title}</a> : s.title}
+                        {s.date ? ` (${s.date})` : ""}
+                        {answer.answered === false && s.snippet && s.snippet !== s.title ? <span style={{ color: "var(--muted)" }}> — {s.snippet}</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : <div key="src" className="xl-entry__text" style={{ opacity: 1 }}>—</div>],
+              ["4  后续决策 Next steps",
+                <div key="f" className="xl-entry__text" style={{ opacity: 1 }}>
+                  {answer.followUp?.length ? answer.followUp.map((f, i) => <div key={i}>• {f}</div>) : "—"}
+                </div>],
+            ].map(([heading, body]) => (
+              <div key={heading}>
+                <div className="xl-label" style={{ color: "var(--gold-bright)", marginBottom: 4 }}>{heading}</div>
+                {body}
               </div>
-            )}
+            ))}
           </div>
         )}
       </div>

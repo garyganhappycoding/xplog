@@ -2,6 +2,7 @@ import { createStore, resolveOwnerUid, adminSdkStatus } from "@/lib/server/fireb
 import { handleMessage } from "@/lib/telegram/handlers";
 import { defaultLlm } from "@/lib/telegram/llm";
 import { defaultMemory } from "@/lib/telegram/memoryService";
+import { groqStatus } from "@/lib/server/groq";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -82,6 +83,7 @@ export async function GET() {
   return Response.json({
     ok: true,
     firebaseAdminSdk: await adminSdkStatus(),
+    groqCheck: await groqStatus(),
     configured: {
       botToken: !!process.env.TELEGRAM_BOT_TOKEN,
       webhookSecret: !!process.env.TELEGRAM_WEBHOOK_SECRET,
