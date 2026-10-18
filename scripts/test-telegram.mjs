@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { parseCommand, extractTags } from "../lib/telegram/commands.js";
 import { parseTodosFallback, dateContext } from "../lib/telegram/llm.js";
 import { handleMessage } from "../lib/telegram/handlers.js";
-import { fallbackKeywords } from "../lib/server/rag.js";
+import { fallbackKeywords, ask } from "../lib/server/rag.js";
 
 // In-memory stand-in for the Firestore store.
 function memoryStore(seed = {}) {
@@ -193,6 +193,75 @@ await test("question keywords for retrieval (no-AI fallback)", () => {
   assert.deepEqual(fallbackKeywords("what is the price of chicken rice?"), ["chicken", "rice"]);
   assert.ok(fallbackKeywords("鸡饭多少钱").includes("鸡饭"));
   assert.ok(fallbackKeywords("上次在 Kedai Ali 吃的鸡饭价格").includes("kedai"));
+});
+
+// ---- the "say you don't have the answer" rule ---------------------------------------------
+const note = (id, title, content, date = "2026-10-18T05:00:00.000Z") => ({ id, title, content, level: "琐碎事情", url: `https://notion.so/${id}`, createdTime: date });
+const related = [note("a", "鸡饭 RM8.50 @Kedai Ali", "鸡饭 RM8.50 @Kedai Ali #价格"), note("b", "Nasi lemak 很特别", "这家店的 nasi lemak 很特别")];
+
+await test("no related notes at all -> 'I don't have the answer' (in the question's language)", async () => {
+  const none = { retrieve: async () => ({ keywords: ["x"], items: [] }), available: () => true, json: async () => { throw new Error("must not call the AI"); } };
+  const en = await ask("What is my wifi password?", none);
+  assert.match(en.answer, /I don't have the answer/);
+  assert.equal(en.answered, false);
+  assert.deepEqual(en.sources, []);
+  assert.match((await ask("我的 wifi 密码是多少", none)).answer, /我没有这个问题的答案/);
+});
+
+await test("related notes that don't contain the answer -> no answer + the notes as references", async () => {
+  let rules = "";
+  const deps = {
+    retrieve: async () => ({ keywords: ["nasi"], items: related }),
+    available: () => true,
+    json: async (system) => { rules = system; return { answerable: false, answer: "I don't have the answer to that.", used: [] }; },
+  };
+  const r = await ask("How much is the teh tarik?", deps);
+  assert.equal(r.answered, false);
+  assert.equal(r.answer, "I don't have the answer to that.");
+  assert.equal(r.sources.length, 2, "closest notes are offered for reference");
+  assert.match(rules, /ONLY the notes provided/);
+  assert.match(rules, /merely on a related topic do NOT count/);
+});
+
+await test("a note that really answers it -> the answer, citing only the notes used", async () => {
+  const deps = {
+    retrieve: async () => ({ keywords: ["鸡饭"], items: related }),
+    available: () => true,
+    json: async () => ({ answerable: true, answer: "鸡饭 RM8.50(10/18 记录,Kedai Ali)", used: [1] }),
+  };
+  const r = await ask("鸡饭多少钱", deps);
+  assert.equal(r.answered, true);
+  assert.match(r.answer, /RM8.50/);
+  assert.deepEqual(r.sources.map((s) => s.id), ["a"]);
+});
+
+await test("an AI that says answerable=true with an empty answer is treated as no answer", async () => {
+  const deps = { retrieve: async () => ({ keywords: ["k"], items: related }), available: () => true, json: async () => ({ answerable: true, answer: "  ", used: [] }) };
+  assert.equal((await ask("anything", deps)).answered, false);
+});
+
+await test("AI unavailable or failing -> never claims an answer, shows the notes to read", async () => {
+  const off = await ask("鸡饭多少钱", { retrieve: async () => ({ keywords: [], items: related }), available: () => false });
+  assert.equal(off.answered, false);
+  assert.match(off.answer, /没法判断/);
+  assert.equal(off.sources.length, 2);
+  const boom = await ask("q", { retrieve: async () => ({ keywords: [], items: related }), available: () => true, json: async () => { throw new Error("429"); } });
+  assert.equal(boom.answered, false);
+});
+
+await test("bot reply: references are labelled as such, real answers cite sources", async () => {
+  const mem = (res) => ({ ask: async () => res });
+  const refs = [{ title: "鸡饭 RM8.50", date: "2026-10-18", snippet: "鸡饭 RM8.50 @Kedai Ali #价格" }];
+  const noAns = await handleMessage({ store: null, llm, memory: mem({ answer: "I don't have the answer to that.", sources: refs, answered: false }), text: "ask: teh tarik price" });
+  assert.match(noAns, /^I don't have the answer to that\./);
+  assert.ok(noAns.includes("相关记录") && noAns.includes("供参考"), "labelled as references");
+  assert.match(noAns, /Kedai Ali/);
+  assert.ok(!/来源/.test(noAns));
+  const yes = await handleMessage({ store: null, llm, memory: mem({ answer: "RM8.50", sources: refs, answered: true }), text: "ask: 鸡饭多少钱" });
+  assert.match(yes, /来源/);
+  assert.ok(!/供参考/.test(yes));
+  const bare = await handleMessage({ store: null, llm, memory: mem({ answer: "I don't have the answer to that.", sources: [], answered: false }), text: "wifi password?" });
+  assert.equal(bare, "I don't have the answer to that.");
 });
 
 console.log(`\n${passed} checks passed`);

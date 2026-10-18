@@ -168,7 +168,7 @@ export default function MemoryPage() {
             <div className="xl-entry__text" style={{ whiteSpace: "pre-wrap", opacity: 1 }}>{answer.answer}</div>
             {answer.sources?.length > 0 && (
               <div className="xl-entry__meta" style={{ marginTop: 10 }}>
-                来源:{answer.sources.map((s, i) => (
+                {answer.answered === false ? "相关记录(供参考):" : "来源:"}{answer.sources.map((s, i) => (
                   <span key={s.id || i}>{i ? " · " : ""}{s.url ? <a href={s.url} target="_blank" rel="noreferrer" style={{ color: "var(--gold)" }}>{s.title}</a> : s.title}{s.date ? ` (${s.date})` : ""}</span>
                 ))}
               </div>
