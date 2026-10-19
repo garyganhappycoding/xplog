@@ -3,25 +3,18 @@ import { handleMessage } from "@/lib/telegram/handlers";
 import { defaultLlm } from "@/lib/telegram/llm";
 import { defaultMemory } from "@/lib/telegram/memoryService";
 import { groqStatus } from "@/lib/server/groq";
+import { sendTelegram } from "@/lib/server/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-async function sendMessage(chatId, text) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return;
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, text, disable_web_page_preview: true }),
-  }).catch(() => {});
-}
+// Replies must never make the webhook fail (Telegram would retry the message).
+const sendMessage = (chatId, text) => sendTelegram(chatId, text).catch(() => {});
 
 // Downloads the largest size of a photo message (the bot token never leaves the server).
-async function downloadPhoto(sizes) {
+async function downloadPhoto(fileId) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const best = sizes[sizes.length - 1];
-  const info = await (await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${best.file_id}`)).json();
+  const info = await (await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`)).json();
   if (!info.ok) throw new Error(info.description || "getFile failed");
   const res = await fetch(`https://api.telegram.org/file/bot${token}/${info.result.file_path}`);
   if (!res.ok) throw new Error("download failed");
@@ -68,8 +61,9 @@ export async function POST(req) {
   try {
     const store = await createStore(await resolveOwnerUid());
     if (!(await store.claimUpdate(update.update_id))) return Response.json({ ok: true, duplicate: true });
-    const photo = msg.photo?.length ? await downloadPhoto(msg.photo) : null;
-    reply = await handleMessage({ store, llm: defaultLlm, memory: defaultMemory, text, photo, ref: `tg:${update.update_id}` });
+    // The photo is only downloaded if it is actually saved (nothing is saved to Notion unless asked).
+    const photo = msg.photo?.length ? { fileId: msg.photo[msg.photo.length - 1].file_id } : null;
+    reply = await handleMessage({ store, llm: defaultLlm, memory: defaultMemory, text, photo, loadPhoto: downloadPhoto, ref: `tg:${update.update_id}` });
   } catch (e) {
     console.error("telegram webhook failed", e);
     reply = `⚠️ 没有记录成功:${e.message || "未知错误"}`;

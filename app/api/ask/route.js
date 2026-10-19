@@ -1,5 +1,6 @@
 import { requireOwner } from "@/lib/server/auth";
 import { ask } from "@/lib/server/rag";
+import { createStore, resolveOwnerUid } from "@/lib/server/firebaseAdmin";
 
 export const maxDuration = 30;
 
@@ -10,7 +11,9 @@ export async function POST(req) {
   const { question } = await req.json();
   if (!question?.trim()) return Response.json({ error: "question required" }, { status: 400 });
   try {
-    return Response.json(await ask(question.trim()));
+    // The store lets the answer include your calendar events and to-dos, not just Notion notes.
+    const store = await createStore(await resolveOwnerUid());
+    return Response.json(await ask(question.trim(), { store }));
   } catch (e) {
     return Response.json({ error: e.message || "failed" }, { status: 500 });
   }
