@@ -85,6 +85,7 @@ export async function GET() {
       firebaseServiceAccount: !!process.env.FIREBASE_SERVICE_ACCOUNT,
       owner: !!(process.env.XPLOG_OWNER_UID || process.env.XPLOG_OWNER_EMAIL),
       groq: !!process.env.GROQ_API_KEY,
+      cronSecret: !!process.env.CRON_SECRET,
       notion: !!(process.env.NOTION_API_KEY && process.env.NOTION_IDEA_VAULT_DATA_SOURCE_ID),
     },
   });
