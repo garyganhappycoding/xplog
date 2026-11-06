@@ -1,246 +1,161 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
-import { Pencil, Trash2 } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CalendarClock, ChevronDown, ChevronRight, FolderPlus, Plus } from "lucide-react";
+import { TopBar, Chip, CheckBox, Sheet } from "@/components/ui";
+import CreateSheet from "@/components/CreateSheet";
 import { useCollection } from "@/lib/useCollection";
-import { ConfirmDialog } from "@/components/ui";
-import TodoBoard from "@/components/TodoBoard";
-import ProjectCards from "@/components/ProjectCards";
-import AllTasks from "@/components/AllTasks";
+import { COLORS } from "@/lib/demo";
+import { addDays, fromKey, toKey } from "@/lib/date";
 
-const COLOR_PRESETS = ["#C9A24B", "#5C8A72", "#A23B3B", "#7A8AC9", "#92897A", "#B07AA1", "#D08C5A"];
+const BOARD_COLORS = [COLORS.blueberry, COLORS.sage, COLORS.tangerine, COLORS.tomato, COLORS.grape, COLORS.peacock, COLORS.banana, COLORS.graphite];
+const asc = (a, b) => (a.order ?? a.createdAt ?? 0) - (b.order ?? b.createdAt ?? 0);
+
+function relDate(key, today) {
+  if (key === today) return "今天";
+  if (key === toKey(addDays(fromKey(today), 1))) return "明天";
+  if (key === toKey(addDays(fromKey(today), -1))) return "昨天";
+  const d = fromKey(key);
+  return `${d.getMonth() + 1}月${d.getDate()}日`;
+}
+
+function TaskRow({ t, color, today, onToggle, onOpen }) {
+  const overdue = !t.done && t.dueDate && t.dueDate < today;
+  return (
+    <div className={`task-row ${t.done ? "task-row--done" : ""}`} onClick={() => onOpen(t)}>
+      <CheckBox checked={!!t.done} color={color} onChange={(v) => onToggle(t, v)} />
+      <div className="grow">
+        <div className="task-row__text">{t.text}</div>
+        {(t.dueDate || t.doDate || t.startTime) && (
+          <div className="task-row__chips">
+            {t.startTime && <span className="tag tag--blue"><CalendarClock size={12} /> {relDate(t.doDate || today, today)} {t.startTime}</span>}
+            {!t.startTime && t.doDate && <span className="tag">计划 {relDate(t.doDate, today)}</span>}
+            {t.dueDate && <span className={`tag ${overdue ? "tag--red" : ""}`}>截止 {relDate(t.dueDate, today)}</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function QuickAdd({ placeholder, onAdd, label }) {
+  const [open, setOpen] = useState(false);
+  const [text, setText] = useState("");
+  const submit = async (e) => {
+    e.preventDefault();
+    const v = text.trim();
+    if (v) await onAdd(v);
+    setText("");
+  };
+  if (!open) return <button type="button" className="add-link" onClick={() => setOpen(true)}><Plus size={18} /> {label}</button>;
+  return (
+    <form className="quick" onSubmit={submit}>
+      <input className="input" autoFocus placeholder={placeholder} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => !text.trim() && setOpen(false)} />
+      <button className="btn" type="submit" disabled={!text.trim()}>添加</button>
+    </form>
+  );
+}
 
 export default function TodoPage() {
-  const { data: rawProjects, add: addProject, update: updateProject, remove: removeProject } = useCollection("projects");
-  const projects = useMemo(() => [...rawProjects].sort((a, b) => (b.order ?? 0) - (a.order ?? 0)), [rawProjects]);
-  const { data: todos, add: addTodo, update: updateTodo, remove: removeTodo } = useCollection("todos");
-  const { data: allSections, add: addSection, update: updateSection, remove: removeSection } = useCollection("sections");
+  const { data: projects, add: addProject } = useCollection("projects");
+  const { data: sections, add: addSection } = useCollection("sections");
+  const { data: todos, add: addTodo, update: updateTodo } = useCollection("todos");
+  const [board, setBoard] = useState("all");
+  const [collapsed, setCollapsed] = useState({});
+  const [showDone, setShowDone] = useState({});
+  const [sheet, setSheet] = useState(null);
+  const [newBoard, setNewBoard] = useState(false);
+  const [boardName, setBoardName] = useState("");
 
-  const [activeProjectId, setActiveProjectId] = useState("");
-  const [showAll, setShowAll] = useState(false);
-  const [showNewProject, setShowNewProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState("");
-  const [newProjectColor, setNewProjectColor] = useState(COLOR_PRESETS[0]);
+  const today = toKey(new Date());
+  const boards = useMemo(() => [...projects].sort(asc), [projects]);
+  const shown = board === "all" ? boards : boards.filter((p) => p.id === board);
+  const toggle = (t, done) => updateTodo(t.id, { done, doneAt: done ? Date.now() : null });
+  const flip = (setter, key) => setter((s) => ({ ...s, [key]: !s[key] }));
 
-  const [editingProject, setEditingProject] = useState(false);
-  const [editName, setEditName] = useState("");
-  const [editColor, setEditColor] = useState(COLOR_PRESETS[0]);
-
-  const [deleteTarget, setDeleteTarget] = useState(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteSectionTarget, setDeleteSectionTarget] = useState(null);
-
-  useEffect(() => {
-    if (!activeProjectId && projects.length) setActiveProjectId(projects[0].id);
-  }, [projects, activeProjectId]);
-
-  const activeProject = projects.find((p) => p.id === activeProjectId);
-  const projectTodos = todos.filter((t) => t.projectId === activeProjectId);
-  const projectSections = allSections
-    .filter((s) => s.projectId === activeProjectId)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-  const createProject = async () => {
-    if (!newProjectName.trim()) return;
-    const ref = await addProject({
-      name: newProjectName.trim(),
-      color: newProjectColor,
-      createdAt: Date.now(),
-      order: projects.length,
-    });
-    setActiveProjectId(ref.id);
-    setNewProjectName("");
-    setNewProjectColor(COLOR_PRESETS[0]);
-    setShowNewProject(false);
+  const createBoard = async () => {
+    const name = boardName.trim();
+    if (!name) return;
+    await addProject({ name, color: BOARD_COLORS[projects.length % BOARD_COLORS.length], order: Date.now(), createdAt: Date.now() });
+    setBoardName("");
+    setNewBoard(false);
   };
-
-  const startEditProject = () => {
-    setEditName(activeProject.name);
-    setEditColor(activeProject.color || COLOR_PRESETS[0]);
-    setEditingProject(true);
-  };
-
-  const saveProject = async () => {
-    await updateProject(activeProject.id, { name: editName.trim() || activeProject.name, color: editColor });
-    setEditingProject(false);
-  };
-
-  const confirmDeleteProject = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    const doomedTodos = todos.filter((t) => t.projectId === deleteTarget.id);
-    const doomedSections = allSections.filter((s) => s.projectId === deleteTarget.id);
-    await Promise.all([
-      ...doomedTodos.map((t) => removeTodo(t.id)),
-      ...doomedSections.map((s) => removeSection(s.id)),
-    ]);
-    await removeProject(deleteTarget.id);
-    setDeleting(false);
-    setDeleteTarget(null);
-    setEditingProject(false);
-    if (activeProjectId === deleteTarget.id) setActiveProjectId("");
-  };
-
-  const confirmDeleteSection = async () => {
-    if (!deleteSectionTarget) return;
-    await Promise.all(
-      todos.filter((t) => t.sectionId === deleteSectionTarget.id).map((t) => updateTodo(t.id, { sectionId: null }))
-    );
-    await removeSection(deleteSectionTarget.id);
-    setDeleteSectionTarget(null);
-  };
-
-  const sectionTodoCount = (sectionId) => todos.filter((t) => t.sectionId === sectionId).length;
 
   return (
     <>
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title={deleteTarget ? `删除项目「${deleteTarget.name}」?` : ""}
-        message={
-          deleteTarget
-            ? `这会永久删除这个项目以及它的 ${todos.filter((t) => t.projectId === deleteTarget.id).length} 个待办事项和 ${allSections.filter((s) => s.projectId === deleteTarget.id).length} 个分区,无法恢复。`
-            : ""
-        }
-        confirmLabel={deleting ? "删除中..." : "确认删除"}
-        onConfirm={confirmDeleteProject}
-        onCancel={() => setDeleteTarget(null)}
-      />
+      <TopBar title="待办">
+        <button type="button" className="icon-btn" onClick={() => setNewBoard(true)} aria-label="新看板"><FolderPlus size={22} /></button>
+      </TopBar>
 
-      <ConfirmDialog
-        open={!!deleteSectionTarget}
-        title={deleteSectionTarget ? `删除分区「${deleteSectionTarget.name}」?` : ""}
-        message={deleteSectionTarget ? `这个分区里的 ${sectionTodoCount(deleteSectionTarget.id)} 个待办不会被删除,会移到「未分区」。` : ""}
-        confirmLabel="确认删除"
-        onConfirm={confirmDeleteSection}
-        onCancel={() => setDeleteSectionTarget(null)}
-      />
+      <div className="chip-row">
+        <Chip active={board === "all"} onClick={() => setBoard("all")}>全部</Chip>
+        {boards.map((p) => (
+          <Chip key={p.id} active={board === p.id} color={p.color} onClick={() => setBoard(p.id)}>
+            {p.name} <span className="muted" style={{ fontSize: 12 }}>{todos.filter((t) => t.projectId === p.id && !t.done).length}</span>
+          </Chip>
+        ))}
+      </div>
 
-      <div className="xl-header"><div className="xl-title">待办</div></div>
-
-      <ProjectCards
-        projects={projects}
-        todos={todos}
-        activeId={activeProjectId}
-        allActive={showAll}
-        onSelectAll={() => { setShowAll(true); setEditingProject(false); }}
-        onSelect={(id) => { setActiveProjectId(id); setShowAll(false); setEditingProject(false); }}
-        onReorder={(ids) => {
-          ids.forEach((id, i) => {
-            const order = ids.length - 1 - i;
-            if (projects.find((p) => p.id === id)?.order !== order) updateProject(id, { order });
-          });
-        }}
-        onNew={() => setShowNewProject((v) => !v)}
-      />
-
-      {showNewProject && (
-        <div className="xl-panel">
-          <div className="xl-field">
-            <label className="xl-label">项目名称</label>
-            <input className="xl-input" value={newProjectName} onChange={(e) => setNewProjectName(e.target.value)} placeholder="例如:Daily / 阅读清单 / 帮小明学习" />
-          </div>
-          <div className="xl-field">
-            <label className="xl-label">颜色(可选)</label>
-            <div className="xl-pillrow">
-              {COLOR_PRESETS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  className="xl-color-swatch"
-                  style={{ background: c, outline: newProjectColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
-                  onClick={() => setNewProjectColor(c)}
-                />
-              ))}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button className="xl-btn" onClick={createProject} type="button">保存</button>
-            <button className="xl-btn--ghost" onClick={() => setShowNewProject(false)} type="button">取消</button>
-          </div>
-        </div>
-      )}
-
-      {showAll && (
-        <>
-          <div className="xl-project-head"><div className="xl-title">全部待办</div></div>
-          <div className="xl-subtitle" style={{ marginBottom: 14 }}>
-            所有项目里还没完成的任务 · 点项目名可打开它的看板
-          </div>
-          <AllTasks
-            projects={projects}
-            todos={todos}
-            onToggle={updateTodo}
-            onOpenProject={(id) => { setActiveProjectId(id); setShowAll(false); }}
-          />
-        </>
-      )}
-
-      {!showAll && activeProject && (
-        <>
-          <div className="xl-project-head">
-            <div className="xl-title" style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-              <span className="xl-project-dot xl-project-dot--lg" style={{ background: activeProject.color || "var(--muted)" }} />
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{activeProject.name}</span>
-            </div>
-            {!editingProject && (
-              <button className="xl-btn--ghost" onClick={startEditProject} type="button" style={{ flexShrink: 0 }}>
-                <Pencil size={12} style={{ marginRight: 6, verticalAlign: -2 }} />编辑项目
-              </button>
+      {shown.map((p) => {
+        const mine = todos.filter((t) => t.projectId === p.id).sort(asc);
+        const secs = sections.filter((s) => s.projectId === p.id).sort(asc);
+        const known = new Set(secs.map((s) => s.id));
+        const loose = mine.filter((t) => !t.done && (!t.sectionId || !known.has(t.sectionId)));
+        const done = mine.filter((t) => t.done);
+        const open = (t) => setSheet({ kind: "task", item: t });
+        return (
+          <section key={p.id} className="board">
+            {board === "all" && (
+              <h2 className="board__title"><span className="dot" style={{ background: p.color }} /> {p.name}</h2>
             )}
-          </div>
-          <div className="xl-subtitle" style={{ marginBottom: 6 }}>
-            {projectTodos.filter((t) => !t.done).length} 项未完成 · 共 {projectTodos.length} 项 · 可拖动卡片到别的分区
-          </div>
+            {loose.map((t) => <TaskRow key={t.id} t={t} color={p.color} today={today} onToggle={toggle} onOpen={open} />)}
+            <QuickAdd label="添加任务" placeholder="新任务…" onAdd={(text) => addTodo({ projectId: p.id, sectionId: null, text, done: false, createdAt: Date.now(), order: Date.now(), doDate: null, dueDate: null, startTime: null, endTime: null })} />
 
-          {editingProject && (
-            <div className="xl-panel" style={{ marginTop: 14 }}>
-              <div className="xl-field">
-                <label className="xl-label">项目名称</label>
-                <input className="xl-input" value={editName} onChange={(e) => setEditName(e.target.value)} autoFocus />
-              </div>
-              <div className="xl-field">
-                <label className="xl-label">颜色</label>
-                <div className="xl-pillrow">
-                  {COLOR_PRESETS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      className="xl-color-swatch"
-                      style={{ background: c, outline: editColor === c ? `2px solid ${c}` : "none", outlineOffset: 2 }}
-                      onClick={() => setEditColor(c)}
-                    />
-                  ))}
+            {secs.map((s) => {
+              const rows = mine.filter((t) => t.sectionId === s.id && !t.done);
+              const closed = collapsed[s.id];
+              return (
+                <div key={s.id} className="sec">
+                  <button type="button" className="sec__head" onClick={() => flip(setCollapsed, s.id)}>
+                    {closed ? <ChevronRight size={18} /> : <ChevronDown size={18} />}
+                    <b>{s.name}</b>
+                    <span className="muted">{rows.length}</span>
+                  </button>
+                  {!closed && (
+                    <>
+                      {rows.map((t) => <TaskRow key={t.id} t={t} color={p.color} today={today} onToggle={toggle} onOpen={open} />)}
+                      <QuickAdd label="添加任务" placeholder={`加到「${s.name}」…`} onAdd={(text) => addTodo({ projectId: p.id, sectionId: s.id, text, done: false, createdAt: Date.now(), order: Date.now(), doDate: null, dueDate: null, startTime: null, endTime: null })} />
+                    </>
+                  )}
                 </div>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <button className="xl-btn" onClick={saveProject} type="button">保存</button>
-                <button className="xl-btn--ghost" onClick={() => setEditingProject(false)} type="button">取消</button>
-                <button className="xl-btn--ghost xl-btn--danger" style={{ marginLeft: "auto" }} onClick={() => setDeleteTarget(activeProject)} type="button">
-                  <Trash2 size={12} style={{ marginRight: 6, verticalAlign: -2 }} />删除项目
+              );
+            })}
+
+            <QuickAdd label="添加分区" placeholder="分区名,例如「本周要做」" onAdd={(name) => addSection({ projectId: p.id, name, order: Date.now() })} />
+
+            {done.length > 0 && (
+              <div className="sec">
+                <button type="button" className="sec__head" onClick={() => flip(setShowDone, p.id)}>
+                  {showDone[p.id] ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+                  <b className="muted">已完成</b><span className="muted">{done.length}</span>
                 </button>
+                {showDone[p.id] && done.map((t) => <TaskRow key={t.id} t={t} color={p.color} today={today} onToggle={toggle} onOpen={open} />)}
               </div>
-            </div>
-          )}
+            )}
+          </section>
+        );
+      })}
 
-          <TodoBoard
-            sections={projectSections}
-            todos={projectTodos}
-            onAddTodo={(sectionId, text) => {
-              const now = Date.now();
-              return addTodo({ projectId: activeProjectId, sectionId, text, done: false, createdAt: now, order: now, doDate: null, dueDate: null });
-            }}
-            onUpdateTodo={updateTodo}
-            onRemoveTodo={removeTodo}
-            onAddSection={(name) => addSection({ projectId: activeProjectId, name, order: projectSections.length, createdAt: Date.now() })}
-            onRenameSection={(id, name) => updateSection(id, { name })}
-            onRemoveSection={setDeleteSectionTarget}
-          />
-        </>
-      )}
+      <button className="fab" type="button" onClick={() => setSheet({ kind: "task", projectId: board === "all" ? "" : board })} aria-label="新建待办"><Plus size={26} /></button>
 
-      {!showAll && !activeProject && projects.length === 0 && (
-        <div className="xl-panel">还没有项目。点上面「+ 新建项目」创建第一个吧。</div>
-      )}
+      <Sheet open={newBoard} onClose={() => setNewBoard(false)} title="新看板">
+        <input className="input" autoFocus placeholder="例如:学业、生活、项目" value={boardName} onChange={(e) => setBoardName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createBoard()} />
+        <div className="sheet__actions">
+          <button className="btn btn--text" type="button" onClick={() => setNewBoard(false)}>取消</button>
+          <button className="btn" type="button" onClick={createBoard} disabled={!boardName.trim()}>创建</button>
+        </div>
+      </Sheet>
+
+      {sheet && <CreateSheet key={sheet.item?.id || "new"} initial={sheet} onClose={() => setSheet(null)} />}
     </>
   );
 }

@@ -1,30 +1,49 @@
 import { createStore, resolveOwnerUid, adminSdkStatus } from "@/lib/server/firebaseAdmin";
-import { handleMessage } from "@/lib/telegram/handlers";
+import { handleMessageRich } from "@/lib/telegram/handlers";
+import { MAIN_KEYBOARD } from "@/lib/telegram/menu";
 import { defaultLlm } from "@/lib/telegram/llm";
 import { defaultMemory } from "@/lib/telegram/memoryService";
-import { groqStatus } from "@/lib/server/groq";
+import { groqStatus, groqToolsCheck, groqChat, hasGroq, transcribeAudio } from "@/lib/server/groq";
+import { downloadTelegramFile } from "@/lib/server/telegramFiles";
+import { runAgent } from "@/lib/telegram/agent";
+import { hasWebSearch, webSearch } from "@/lib/server/web";
+import { planQuery, retrieveNotes } from "@/lib/server/rag";
 import { sendTelegram } from "@/lib/server/telegram";
 
 export const runtime = "nodejs";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 // Replies must never make the webhook fail (Telegram would retry the message).
-const sendMessage = (chatId, text) => sendTelegram(chatId, text).catch(() => {});
+const sendMessage = (chatId, text, keyboard) => sendTelegram(chatId, text, keyboard).catch(() => {});
 
-// Downloads the largest size of a photo message (the bot token never leaves the server).
-async function downloadPhoto(fileId) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const info = await (await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`)).json();
-  if (!info.ok) throw new Error(info.description || "getFile failed");
-  const res = await fetch(`https://api.telegram.org/file/bot${token}/${info.result.file_path}`);
-  if (!res.ok) throw new Error("download failed");
-  const ext = (info.result.file_path.split(".").pop() || "jpg").toLowerCase();
-  return {
-    buffer: Buffer.from(await res.arrayBuffer()),
-    mime: ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg",
-    filename: `telegram-${Date.now()}.${ext}`,
-  };
+// The conversational assistant (needs the AI key). It reads your notes (Notion) but never writes to Notion.
+function makeAgent() {
+  if (!hasGroq()) return undefined;
+  return (args) =>
+    runAgent({
+      ...args,
+      chat: groqChat,
+      webSearch: hasWebSearch() ? webSearch : undefined,
+      searchNotes: async (query) => retrieveNotes((await planQuery(query)).keywords),
+    });
 }
+
+// Voice notes -> text (Whisper on Groq).
+async function transcribe(file) {
+  if (!hasGroq()) throw new Error("没有配置 GROQ_API_KEY");
+  return transcribeAudio(file.buffer, file.mime, file.filename);
+}
+
+// Page titles for links dropped into the box (best effort, 3 seconds at most).
+const llmWithTitles = {
+  ...defaultLlm,
+  async fetchTitle(url) {
+    const res = await fetch(url, { signal: AbortSignal.timeout(3000), headers: { "User-Agent": "Mozilla/5.0 XPLog" } });
+    const html = (await res.text()).slice(0, 60000);
+    const m = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    return m ? m[1].replace(/\s+/g, " ").trim().slice(0, 140) : null;
+  },
+};
 
 // Telegram calls this for every message sent to the bot (registered with setWebhook, see
 // scripts/telegram-webhook.mjs). Always answer 200 once the request is authentic - a non-200
@@ -52,8 +71,9 @@ export async function POST(req) {
     return Response.json({ ok: true });
   }
   const text = msg.text ?? msg.caption ?? "";
-  if (!text && !msg.photo?.length) {
-    await sendMessage(chatId, "目前只支持文字和照片。发 /help 看用法。");
+  const audio = msg.voice || msg.audio || msg.video_note || null;
+  if (!text && !msg.photo?.length && !audio) {
+    await sendMessage(chatId, "目前支持文字、链接、照片和语音。点下面的按钮看看我能做什么 👇", MAIN_KEYBOARD);
     return Response.json({ ok: true });
   }
 
@@ -61,14 +81,15 @@ export async function POST(req) {
   try {
     const store = await createStore(await resolveOwnerUid());
     if (!(await store.claimUpdate(update.update_id))) return Response.json({ ok: true, duplicate: true });
-    // The photo is only downloaded if it is actually saved (nothing is saved to Notion unless asked).
+    // Photos and voice notes go to the dump box; only the voice note is downloaded here (to transcribe it).
     const photo = msg.photo?.length ? { fileId: msg.photo[msg.photo.length - 1].file_id } : null;
-    reply = await handleMessage({ store, llm: defaultLlm, memory: defaultMemory, text, photo, loadPhoto: downloadPhoto, ref: `tg:${update.update_id}` });
+    const voice = audio ? { fileId: audio.file_id, duration: audio.duration || 0 } : null;
+    reply = await handleMessageRich({ store, llm: llmWithTitles, memory: defaultMemory, agent: makeAgent(), text, photo, voice, loadFile: downloadTelegramFile, transcribe });
   } catch (e) {
     console.error("telegram webhook failed", e);
-    reply = `⚠️ 没有记录成功:${e.message || "未知错误"}`;
+    reply = { text: `⚠️ 没有记录成功:${e.message || "未知错误"}`, keyboard: MAIN_KEYBOARD };
   }
-  await sendMessage(chatId, reply);
+  await sendMessage(chatId, reply.text, reply.keyboard);
   return Response.json({ ok: true });
 }
 
@@ -78,6 +99,7 @@ export async function GET() {
     ok: true,
     firebaseAdminSdk: await adminSdkStatus(),
     groqCheck: await groqStatus(),
+    toolCalling: await groqToolsCheck(),
     configured: {
       botToken: !!process.env.TELEGRAM_BOT_TOKEN,
       webhookSecret: !!process.env.TELEGRAM_WEBHOOK_SECRET,
@@ -86,6 +108,7 @@ export async function GET() {
       owner: !!(process.env.XPLOG_OWNER_UID || process.env.XPLOG_OWNER_EMAIL),
       groq: !!process.env.GROQ_API_KEY,
       cronSecret: !!process.env.CRON_SECRET,
+      webSearch: hasWebSearch(),
       notion: !!(process.env.NOTION_API_KEY && process.env.NOTION_IDEA_VAULT_DATA_SOURCE_ID),
     },
   });

@@ -32,10 +32,12 @@ await api("setWebhook", {
 });
 await api("setMyCommands", {
   commands: [
+    { command: "menu", description: "📋 打开按钮菜单" },
+    { command: "dump", description: "📥 放进倒出箱(也可以直接发)" },
     { command: "todo", description: "添加待办(一行一个)" },
-    { command: "entry", description: "记一条日记" },
-    { command: "idea", description: "记一个想法(同步到 Notion)" },
     { command: "event", description: "添加日程(时间/地点/准备)" },
+    { command: "remind", description: "到时间提醒我" },
+    { command: "ask", description: "问我的笔记/日程/待办" },
     { command: "help", description: "查看用法" },
   ],
 });

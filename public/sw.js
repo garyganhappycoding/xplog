@@ -1,6 +1,6 @@
 // Minimal service worker: makes the app installable and keeps the shell usable when the
 // connection drops. Data (Firestore) and /api calls always go to the network.
-const VERSION = "xplog-v1";
+const VERSION = "xplog-v2"; // bumped with the redesign so old cached pages are dropped
 const STATIC_CACHE = `${VERSION}-static`;
 const PAGE_CACHE = `${VERSION}-pages`;
 const OFFLINE_URL = "/offline.html";

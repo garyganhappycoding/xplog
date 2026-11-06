@@ -1,49 +1,78 @@
 "use client";
 import { useEffect } from "react";
-import { Sparkles } from "lucide-react";
+import { Check } from "lucide-react";
 
-export const Pill = ({ active, onClick, children, small }) => (
-  <button className={`xl-pill ${active ? "xl-pill--active" : ""} ${small ? "xl-pill--sm" : ""}`} onClick={onClick} type="button">
-    {children}
-  </button>
-);
+// Small shared pieces of the light, Google-style UI.
 
-export const ProgressBar = ({ pct, tall }) => (
-  <div className={`xl-bar ${tall ? "xl-bar--tall" : ""}`}>
-    <div className="xl-bar__fill" style={{ width: `${pct}%` }} />
-  </div>
-);
-
-export const LevelUpSeal = ({ skillName, level, onDone }) => {
+// A sheet that slides up from the bottom (create / edit / details).
+export function Sheet({ open, onClose, title, children }) {
   useEffect(() => {
-    const t = setTimeout(onDone, 2600);
-    return () => clearTimeout(t);
-  }, [onDone]);
-  return (
-    <div className="xl-seal-overlay" onClick={onDone}>
-      <div className="xl-seal">
-        <div className="xl-seal__ring">
-          <Sparkles size={18} className="xl-seal__spark" />
-          <div className="xl-seal__level">LV.{level}</div>
-        </div>
-        <div className="xl-seal__caption">{skillName} · 晋级</div>
-      </div>
-    </div>
-  );
-};
-
-export const ConfirmDialog = ({ open, title, message, confirmLabel = "确认删除", onConfirm, onCancel }) => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
   if (!open) return null;
   return (
-    <div className="xl-modal-overlay" onClick={onCancel}>
-      <div className="xl-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="xl-modal__title">{title}</div>
-        {message && <div className="xl-modal__msg">{message}</div>}
-        <div className="xl-modal__actions">
-          <button className="xl-btn--ghost" onClick={onCancel} type="button">取消</button>
-          <button className="xl-btn xl-btn--danger" onClick={onConfirm} type="button">{confirmLabel}</button>
+    <div className="sheet-overlay" onClick={onClose}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet__handle" />
+        {title && <h2 className="sheet__title">{title}</h2>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export function ConfirmDialog({ open, title, message, confirmLabel = "删除", onConfirm, onCancel }) {
+  if (!open) return null;
+  return (
+    <div className="dialog-overlay" onClick={onCancel}>
+      <div className="dialog" onClick={(e) => e.stopPropagation()}>
+        <h3>{title}</h3>
+        <p>{message}</p>
+        <div className="sheet__actions" style={{ marginTop: 0 }}>
+          <button className="btn btn--text" onClick={onCancel} type="button">取消</button>
+          <button className="btn btn--danger" onClick={onConfirm} type="button">{confirmLabel}</button>
         </div>
       </div>
     </div>
   );
-};
+}
+
+// Round check box (Google Tasks style). `color` tints it with the task's board colour.
+export function CheckBox({ checked, onChange, color }) {
+  return (
+    <button
+      type="button"
+      className={`check ${checked ? "check--done" : ""}`}
+      style={color ? { borderColor: checked ? color : color, background: checked ? color : "transparent" } : undefined}
+      onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
+      aria-label={checked ? "标记为未完成" : "标记为完成"}
+    >
+      {checked && <Check size={14} strokeWidth={3} />}
+    </button>
+  );
+}
+
+export function Chip({ active, onClick, children, color, small, tint }) {
+  const style = color && tint ? { background: `${color}1f`, color } : undefined;
+  return (
+    <button type="button" onClick={onClick} className={`chip ${active ? "chip--active" : ""} ${small ? "chip--sm" : ""} ${tint ? "chip--tint" : ""}`} style={style}>
+      {color && !tint && <span className="dot" style={{ background: color }} />}
+      {children}
+    </button>
+  );
+}
+
+export function TopBar({ title, sub, children }) {
+  return (
+    <header className="bar">
+      <div className="bar__title">
+        {title}
+        {sub && <span className="bar__sub">{sub}</span>}
+      </div>
+      {children}
+    </header>
+  );
+}

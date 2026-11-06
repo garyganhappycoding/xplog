@@ -5,11 +5,28 @@ import { auth, googleProvider } from "@/lib/firebase";
 
 const AuthContext = createContext({ user: null, loading: true, login: () => {}, logout: () => {} });
 
+// ?demo=1 switches on demo mode for the browser tab: a fake signed-in user and sample data.
+const wantsDemo = () => {
+  try {
+    if (new URLSearchParams(window.location.search).get("demo") === "1") sessionStorage.setItem("xplog-demo", "1");
+    return sessionStorage.getItem("xplog-demo") === "1";
+  } catch {
+    return false;
+  }
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (wantsDemo()) {
+      Promise.resolve().then(() => {
+        setUser({ uid: "demo", displayName: "演示账号", demo: true });
+        setLoading(false);
+      });
+      return undefined;
+    }
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -28,7 +45,14 @@ export function AuthProvider({ children }) {
       throw e;
     }
   };
-  const logout = () => signOut(auth);
+  const logout = () => {
+    if (user?.demo) {
+      try { sessionStorage.removeItem("xplog-demo"); } catch {}
+      window.location.href = "/";
+      return Promise.resolve();
+    }
+    return signOut(auth);
+  };
 
   return (
     <AuthContext.Provider value={{ user, loading, login, logout }}>

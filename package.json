@@ -9,6 +9,7 @@
     "lint": "eslint",
     "telegram:webhook": "node --env-file=.env.local scripts/telegram-webhook.mjs",
     "test:telegram": "node scripts/test-telegram.mjs",
+    "test:google": "node scripts/test-google.mjs",
     "notion:levels": "node --env-file=.env.local scripts/setup-notion-levels.mjs"
   },
   "dependencies": {

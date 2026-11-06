@@ -1,6 +1,8 @@
 import { createStore, resolveOwnerUid } from "@/lib/server/firebaseAdmin";
 import { runReminders } from "@/lib/server/reminders";
 import { sendTelegram } from "@/lib/server/telegram";
+import { googleConfigured, makeGcal } from "@/lib/server/google";
+import { syncGoogle } from "@/lib/server/googleSync";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -25,7 +27,10 @@ async function handle(req) {
       eventLeadMinutes: Number(process.env.REMINDER_EVENT_MINUTES) || 30,
       digestHour: Number(process.env.DIGEST_HOUR ?? 8),
     });
-    return Response.json({ ok: true, sent: sent.length, keys: sent.map((s) => s.key) });
+    // Pick up changes made in Google Calendar even while the app is closed (best effort).
+    let google = null;
+    if (googleConfigured()) google = await syncGoogle({ store, gcal: makeGcal(store) }).catch((e) => ({ ok: false, error: e.message }));
+    return Response.json({ ok: true, sent: sent.length, keys: sent.map((s) => s.key), google });
   } catch (e) {
     console.error("reminders failed", e);
     return Response.json({ error: e.message || "failed" }, { status: 500 });
