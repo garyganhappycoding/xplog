@@ -144,6 +144,12 @@ export default function DumpPage() {
   const startedAt = useRef(0);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState("");
+  const [toast, setToast] = useState(null); // { id, folder } shown after you file something
+  useEffect(() => {
+    if (!toast) return undefined;
+    const t = setTimeout(() => setToast(null), 7000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const [text, setText] = useState("");
   const [tab, setTab] = useState("inbox");
@@ -270,7 +276,8 @@ export default function DumpPage() {
     if (!res.ok && !res.error) await update(id, { notionState: "error", notionError: "没连上服务器" }).catch(() => {});
   };
 
-  const fileTo = async (d, folder) => {
+  const fileTo = async (d, folder, quiet = false) => {
+    const announce = () => { if (!quiet) setToast({ id: d.id, folder }); };
     if (d.status === "new") {
       // the first time an item is filed into a system folder it also goes where that folder points
       if (folder === "event") { setEventFor(d); return; }
@@ -281,12 +288,14 @@ export default function DumpPage() {
       if (folder === "diary") {
         const entry = await addDiary({ text: d.text, createdAt: stamp(), from: "dump", notionPageId: null, notionState: "pending", ...(d.photoUrl ? { photoUrl: d.photoUrl } : {}) });
         await finish(d, folder);
+        announce();
         if (demo) setTimeout(() => updateDiary(entry.id, { notionState: "ok", notionPageId: "demo" }), 1200);
         else syncToNotion({ collection: "diaryEntries", id: entry.id });
         return;
       }
     }
     await finish(d, folder);
+    announce();
     if (NOTION_FOLDERS.includes(folder)) await toNotion("dumps", d.id, folder);
   };
   const createFolder = async (name) => {
@@ -298,8 +307,9 @@ export default function DumpPage() {
     setMoveIds(null);
     for (const id of ids) {
       const d = dumps.find((x) => x.id === id);
-      if (d) await fileTo(d, folder);
+      if (d) await fileTo(d, folder, ids.length > 1);
     }
+    if (ids.length > 1) setToast({ id: null, folder, count: ids.length });
     setSelecting(false);
     setPicked([]);
   };
@@ -419,6 +429,19 @@ export default function DumpPage() {
         <button type="button" className={`tabs__item ${tab === "folders" ? "tabs__item--on" : ""}`} onClick={() => { setTab("folders"); stopSelecting(); }}>文件夹 <b>{folders.length}</b></button>
       </div>
 
+      {tab === "inbox" && (
+        <div className="fstrip">
+          <span className="fstrip__label">我的文件夹</span>
+          <div className="fstrip__row">
+            {folders.map((f) => (
+              <button key={f.id} type="button" className="fstrip__chip" onClick={() => setOpenFolder(f.id)}>
+                <span className="dot" style={{ background: f.color }} /> {f.cn} <b>{inFolder(f.id).length}</b>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {tab === "inbox" ? (
         fresh.length === 0 ? <div className="empty">收件箱是空的 ✓<br />从 Telegram 发给机器人的内容也会出现在这里</div> : (
           <>
@@ -443,6 +466,7 @@ export default function DumpPage() {
               <FolderIcon f={f} />
               <b>{f.cn}</b>
               <span className="muted">{inFolder(f.id).length} 项</span>
+              {inFolder(f.id)[0] && <span className="ftile__latest">最近:{(inFolder(f.id)[0].text || KIND[inFolder(f.id)[0].kind] || "").replace(/\s+/g, " ").slice(0, 16)}</span>}
               <small>{f.system ? f.to : "自己的文件夹"}</small>
             </button>
           ))}
@@ -464,7 +488,19 @@ export default function DumpPage() {
         </div>
       </Sheet>
 
-      {review && !loading && <Review items={fresh} folders={folders} onPick={fileTo} onRemove={(d) => remove(d.id)} onClose={() => setReview(false)} />}
+      {toast && (() => {
+        const f = folderById(toast.folder);
+        const item = toast.id ? dumps.find((x) => x.id === toast.id) : null;
+        return (
+          <div className="toast" role="status">
+            <span className="grow">{toast.count ? `已把 ${toast.count} 条放进` : "已放进"}「{f?.cn}」</span>
+            <button type="button" onClick={() => { setOpenFolder(toast.folder); setToast(null); }}>查看</button>
+            {item && <button type="button" onClick={() => { putBack(item); setToast(null); }}>撤销</button>}
+          </div>
+        );
+      })()}
+
+      {review && !loading && <Review items={fresh} folders={folders} onPick={(d, f) => fileTo(d, f, true)} onRemove={(d) => remove(d.id)} onClose={() => setReview(false)} />}
     </>
   );
 }
